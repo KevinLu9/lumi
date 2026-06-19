@@ -3,3 +3,4 @@ kokoro-*
 voices-*
 __pycache__
 .env*
+.spotify_cache
