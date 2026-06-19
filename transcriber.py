@@ -33,6 +33,8 @@ previous
 volume up
 volume down
 playlist
+google
+chrome
 """
 
 HALLUCINATIONS = {

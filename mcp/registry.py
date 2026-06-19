@@ -9,14 +9,18 @@ from .tools import (
 from .browser import (
     TOOL_FNS as _br_fns,
     TOOL_SCHEMAS as _br_schemas,
-    open_url, search_web,
+    browser_navigate, browser_read_page, browser_click,
 )
+
 
 TOOL_FNS: dict = dict(_base_fns)
 TOOL_FNS.update(_br_fns)
 TOOL_SCHEMAS: list[dict] = list(_base_schemas) + list(_br_schemas)
 # Python callables passed to Gemini (it generates schemas from docstrings + type hints).
-TOOL_CALLABLES: list = [get_time, get_weather, calculate, set_timer, reset_chat, open_url, search_web]
+TOOL_CALLABLES: list = [
+    get_time, get_weather, calculate, set_timer, reset_chat,
+    browser_navigate, browser_read_page, browser_click,
+]
 
 if os.environ.get("SPOTIFY_CLIENT_ID"):
     from .spotify import (
