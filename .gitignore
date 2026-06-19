@@ -1,0 +1,5 @@
+.venv
+kokoro-*
+voices-*
+__pycache__
+.env*
