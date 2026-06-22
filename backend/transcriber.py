@@ -35,6 +35,7 @@ volume down
 playlist
 google
 chrome
+type text
 """
 
 HALLUCINATIONS = {

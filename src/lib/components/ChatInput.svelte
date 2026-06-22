@@ -18,6 +18,7 @@
     browser_navigate: 'Open the website ',
     browser_read_page: 'Read the current page',
     browser_click: 'Click ',
+    type_text: 'Type this where my cursor is: ',
     spotify_now_playing: "What's playing on Spotify?",
     spotify_play_pause: 'Pause the music',
     spotify_next: 'Skip to the next track',

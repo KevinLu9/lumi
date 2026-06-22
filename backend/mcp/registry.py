@@ -11,15 +11,22 @@ from .browser import (
     TOOL_SCHEMAS as _br_schemas,
     browser_navigate, browser_read_page, browser_click,
 )
+from .keyboard import (
+    TOOL_FNS as _kb_fns,
+    TOOL_SCHEMAS as _kb_schemas,
+    type_text,
+)
 
 
 TOOL_FNS: dict = dict(_base_fns)
 TOOL_FNS.update(_br_fns)
-TOOL_SCHEMAS: list[dict] = list(_base_schemas) + list(_br_schemas)
+TOOL_FNS.update(_kb_fns)
+TOOL_SCHEMAS: list[dict] = list(_base_schemas) + list(_br_schemas) + list(_kb_schemas)
 # Python callables passed to Gemini (it generates schemas from docstrings + type hints).
 TOOL_CALLABLES: list = [
     get_time, get_weather, calculate, set_timer, reset_chat,
     browser_navigate, browser_read_page, browser_click,
+    type_text,
 ]
 
 if os.environ.get("SPOTIFY_CLIENT_ID"):

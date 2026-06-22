@@ -5,6 +5,7 @@ import os
 from fastmcp import FastMCP
 from . import tools as _tools
 from . import browser as _browser
+from . import keyboard as _keyboard
 
 mcp = FastMCP("lumi-tools")
 
@@ -64,6 +65,16 @@ def search_web(query: str) -> str:
         query: Search terms, e.g. 'Python tutorials' or 'weather Sydney'.
     """
     return _browser.search_web(query)
+
+
+@mcp.tool()
+def type_text(text: str) -> str:
+    """Type text into wherever the cursor currently is — the focused app or text field.
+
+    Args:
+        text: The text to insert at the current cursor location.
+    """
+    return _keyboard.type_text(text)
 
 
 if os.environ.get("SPOTIFY_CLIENT_ID"):
