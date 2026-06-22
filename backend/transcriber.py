@@ -49,6 +49,33 @@ _context = ""
 _vad_status_enabled = False
 _pinned_status: str | None = None  # when set, VAD status calls redraw this instead
 
+# Audio frames flow into here from either a local sounddevice stream or, in web mode,
+# from feed_audio() called by the WebSocket handler.
+_audio_queue: queue.Queue = queue.Queue()
+
+
+def feed_audio(frame: np.ndarray) -> None:
+    """Push a 16kHz mono float32 frame (~512 samples) into the capture pipeline.
+
+    Used in web mode: the WebSocket handler decodes browser mic PCM and calls this.
+    """
+    _audio_queue.put(frame.reshape(-1, 1))
+
+
+# Optional hook used in web mode to broadcast fine-grained capture states
+# ("recording", "transcribing", "listening") to the UI.
+_state_cb: Callable[[str], None] | None = None
+
+
+def set_state_callback(fn: Callable[[str], None] | None) -> None:
+    global _state_cb
+    _state_cb = fn
+
+
+def _state(name: str) -> None:
+    if _state_cb:
+        _state_cb(name)
+
 
 def set_vad_status_enabled(enabled: bool):
     global _vad_status_enabled
@@ -87,6 +114,7 @@ def start(
     on_transcript: Callable[[str, bool], None],
     on_speech_start: Callable[[], None] | None = None,
     is_tts_playing: Callable[[], bool] | None = None,
+    source: str = "local",
 ):
     print("Loading transcription models...")
     # cpu_threads=2 caps Whisper's OpenMP threads so it doesn't starve the audio output thread.
@@ -100,7 +128,7 @@ def start(
     )
     vad = utils[3](vad_model, threshold=0.5, sampling_rate=SAMPLE_RATE, min_silence_duration_ms=300)
 
-    audio_queue: queue.Queue = queue.Queue()
+    audio_queue = _audio_queue
     transcribe_queue: queue.Queue = queue.Queue()
 
     def transcribe_worker():
@@ -108,6 +136,7 @@ def start(
             audio, tts_was_active = transcribe_queue.get()
             if _vad_status_enabled:
                 set_status("⏳ transcribing...")
+                _state("transcribing")
 
             segments, _ = whisper_model.transcribe(
                 audio,
@@ -124,6 +153,7 @@ def start(
                 on_transcript(text, tts_was_active)
             if _vad_status_enabled:
                 set_status("🎤 listening...")
+                _state("listening")
 
     def audio_callback(indata, frames, time, status):
         audio_queue.put(indata.copy())
@@ -148,6 +178,7 @@ def start(
                     tts_active_at_start = is_tts_playing() if is_tts_playing else False
                     if _vad_status_enabled:
                         set_status("🗣 recording...")
+                        _state("recording")
                     if on_speech_start:
                         on_speech_start()
                     speech_buffer = list(pre_roll)
@@ -169,9 +200,14 @@ def start(
                         vad.reset_states()
                         if _vad_status_enabled:
                             set_status("🎤 listening...")
+                            _state("listening")
 
     threading.Thread(target=transcribe_worker, daemon=True).start()
 
-    with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32",
-                        blocksize=BLOCK_SAMPLES, callback=audio_callback):
+    if source == "web":
+        # Frames arrive via feed_audio() from the WebSocket handler; no local mic.
         vad_loop()
+    else:
+        with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32",
+                            blocksize=BLOCK_SAMPLES, callback=audio_callback):
+            vad_loop()

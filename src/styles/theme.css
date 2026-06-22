@@ -1,0 +1,76 @@
+:root {
+  --bg-0: #0a0704;
+  --bg-1: #140d06;
+  --panel: rgba(34, 24, 14, 0.55);
+  --panel-border: rgba(255, 170, 90, 0.16);
+  --text: #fdeede;
+  --text-dim: #b89a7c;
+  --accent: #fb923c;
+  --accent2: #f59e0b;
+  --accent-glow: rgba(251, 146, 60, 0.55);
+  --accent2-glow: rgba(245, 158, 11, 0.5);
+  --ok: #34d399;
+  --warn: #fbbf24;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #2a1808 0%, transparent 60%),
+    radial-gradient(900px 600px at 100% 100%, #2c1405 0%, transparent 55%),
+    var(--bg-0);
+  color: var(--text);
+  overflow: hidden;
+}
+
+#app { height: 100%; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 170, 90, 0.2); border-radius: 8px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.panel-title {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  background: rgba(70, 48, 26, 0.4);
+  color: var(--text);
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn:hover { border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
+.btn.danger:hover { border-color: var(--accent2); box-shadow: 0 0 14px var(--accent2-glow); }
+.btn:active { transform: translateY(1px); }
+.btn.active { border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
+
+@media (max-width: 1100px) {
+  /* Let the page scroll on small screens instead of a fixed full-height app. */
+  html, body { overflow-y: auto; height: auto; min-height: 100%; }
+  #app { height: auto; min-height: 100%; }
+}
+
+@media (max-width: 700px) {
+  .btn { padding: 11px 14px; min-height: 44px; }  /* comfortable touch targets */
+}

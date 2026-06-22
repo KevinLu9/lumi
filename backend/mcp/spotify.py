@@ -1,5 +1,5 @@
 """Spotify Web API tools — requires SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET in .env.
-Run `python -m mcp.spotify_auth` once to authenticate and cache the token."""
+Run `python -m backend.mcp.spotify_auth` once to authenticate and cache the token."""
 
 import os
 from dotenv import load_dotenv

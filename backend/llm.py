@@ -8,6 +8,8 @@ import re
 import os
 import threading
 
+from . import events
+
 LUMI_COLOR = "\033[35m"   # magenta
 RESET      = "\033[0m"
 
@@ -41,7 +43,7 @@ def clear_history():
         # in-progress conversation turn. _ask_groq clears at the start of the next call.
         _groq_pending_clear = True
     else:
-        from mcp.registry import TOOL_CALLABLES
+        from .mcp.registry import TOOL_CALLABLES
         model = genai.GenerativeModel(
             model_name=GEMINI_MODEL,
             system_instruction=SYSTEM_PROMPT,
@@ -51,19 +53,22 @@ def clear_history():
 
 
 def _execute_tool(name: str, args: dict) -> str:
-    from mcp.registry import TOOL_FNS
+    from .mcp.registry import TOOL_FNS
     fn = TOOL_FNS.get(name)
     if not fn:
+        events.emit("tool_call", name=name, args=args, result="Unknown tool")
         return f"Unknown tool: {name}"
     try:
-        return str(fn(**args))
+        result = str(fn(**args))
     except Exception as e:
-        return f"Tool error: {e}"
+        result = f"Tool error: {e}"
+    events.emit("tool_call", name=name, args=args, result=result)
+    return result
 
 
 def load():
     global _gemini_chat, _groq_client
-    from mcp.registry import TOOL_CALLABLES
+    from .mcp.registry import TOOL_CALLABLES
     if PROVIDER == "groq":
         api_key = os.environ.get("GROQ_API_KEY", "")
         if not api_key:
@@ -119,7 +124,7 @@ def _ask_gemini(text: str) -> str:
 
 def _ask_groq(text: str) -> str:
     global _groq_pending_clear
-    from mcp.registry import TOOL_SCHEMAS
+    from .mcp.registry import TOOL_SCHEMAS
     if _groq_pending_clear:
         _groq_history.clear()
         _groq_pending_clear = False
@@ -182,6 +187,7 @@ def ask(text: str, on_sentence: Callable[[str], None]):
     if _cancel.is_set():
         return
 
+    events.emit("lumi_message", text=raw)
     sys.stdout.write(f"\r\033[K{LUMI_COLOR}Lumi:{RESET} {raw}\n")
     sys.stdout.flush()
 

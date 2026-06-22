@@ -1,5 +1,5 @@
 """Run once to authenticate with Spotify and cache the token.
-Usage (from server-python/):  python -m mcp.spotify_auth
+Usage (from repo root):  python -m backend.mcp.spotify_auth
 """
 import os
 import sys

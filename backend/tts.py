@@ -5,6 +5,7 @@ import numpy as np
 import pyrubberband as pyrb
 import threading
 import queue
+import time
 import os
 
 TAIL_SILENCE_SEC = 0.4  # seconds of silence padded after each sentence so words don't get clipped
@@ -44,6 +45,29 @@ _play_queue: queue.Queue = queue.Queue()
 _generation = 0
 _generation_lock = threading.Lock()
 _playing = threading.Event()
+
+# Audio sink. When _send_audio is set, TTS runs in "web" mode: generated PCM is shipped
+# to the browser instead of played locally via sounddevice. _send_control delivers JSON
+# control messages (flush on interrupt, chime tone).
+_send_audio = None        # callable(pcm_bytes: bytes, sample_rate: int)
+_send_control = None      # callable(message: dict)
+_web_playing_until = 0.0  # monotonic time the browser is estimated to finish playing
+_web_lock = threading.Lock()
+
+
+def set_audio_sink(send_audio=None, send_control=None) -> None:
+    """Switch TTS to web mode by providing browser-bound senders. Call with no args to
+    revert to local sounddevice playback (used by the CLI)."""
+    global _send_audio, _send_control
+    _send_audio = send_audio
+    _send_control = send_control
+
+
+def notify_playback_ended() -> None:
+    """Browser reports its audio buffer has drained — clear the speaking estimate."""
+    global _web_playing_until
+    with _web_lock:
+        _web_playing_until = 0.0
 
 
 def _shelf_filter(samples: np.ndarray, sr: int, cutoff: float, gain_db: float, high: bool) -> np.ndarray:
@@ -94,15 +118,27 @@ def _generator():
 
 
 def is_playing() -> bool:
+    if _send_audio is not None:
+        return time.monotonic() < _web_playing_until
     return _playing.is_set()
 
 
 def wait_done():
     """Block until all queued audio has finished playing."""
-    import time
     time.sleep(0.05)  # let the first item reach the gen queue
-    while _playing.is_set() or not _gen_queue.empty() or not _play_queue.empty():
+    while is_playing() or not _gen_queue.empty() or not _play_queue.empty():
         time.sleep(0.05)
+
+
+def _web_play(samples: np.ndarray, sample_rate: int):
+    """Ship a PCM chunk to the browser and extend the playback-time estimate."""
+    global _web_playing_until
+    duration = len(samples) / sample_rate
+    _send_audio(samples.astype(np.float32).tobytes(), sample_rate)
+    now = time.monotonic()
+    with _web_lock:
+        start_at = max(now, _web_playing_until)
+        _web_playing_until = start_at + duration
 
 
 def _player():
@@ -110,14 +146,20 @@ def _player():
         samples, sample_rate, gen = _play_queue.get()
         if gen != _generation:
             continue
-        _playing.set()
-        sd.play(samples, sample_rate, latency="high")
-        sd.wait()
-        _playing.clear()
+        if _send_audio is not None:
+            _web_play(samples, sample_rate)
+        else:
+            _playing.set()
+            sd.play(samples, sample_rate, latency="high")
+            sd.wait()
+            _playing.clear()
 
 
 def chime():
     """Play a short activation tone directly, bypassing the TTS queue."""
+    if _send_control is not None:
+        _send_control({"type": "chime"})
+        return
     sr = 44100
     t = np.linspace(0, 0.15, int(sr * 0.15), endpoint=False)
     tone = np.sin(2 * np.pi * 880 * t).astype(np.float32)
@@ -127,10 +169,16 @@ def chime():
 
 def interrupt():
     """Stop current playback and discard all queued audio."""
-    global _generation
+    global _generation, _web_playing_until
     with _generation_lock:
         _generation += 1
-    sd.stop()
+    if _send_audio is not None:
+        with _web_lock:
+            _web_playing_until = 0.0
+        if _send_control is not None:
+            _send_control({"type": "flush"})
+    else:
+        sd.stop()
     for q in (_gen_queue, _play_queue):
         while True:
             try:

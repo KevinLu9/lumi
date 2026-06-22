@@ -1,4 +1,4 @@
-"""Standalone FastMCP server — run with: python -m mcp.server (from server-python/)
+"""Standalone FastMCP server — run with: python -m backend.mcp.server (from repo root)
 Also connectable from Claude Desktop or any MCP client via stdio."""
 
 import os

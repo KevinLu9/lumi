@@ -4,3 +4,5 @@ voices-*
 __pycache__
 .env*
 .spotify_cache
+node_modules
+dist
