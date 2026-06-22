@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { sendMessage } from '../api'
   import { micOn, tools, type Tool } from '../stores'
 
@@ -6,34 +7,31 @@
 
   let text = ''
   let inputEl: HTMLInputElement
+  let paletteEl: HTMLDivElement
   let selected = 0
+  let cursor = 0
+  let dismissed = false
 
-  // Natural-language starters for known tools; falls back to the tool description.
-  const TEMPLATES: Record<string, string> = {
-    get_time: 'What time is it?',
-    get_weather: "What's the weather in ",
-    calculate: 'Calculate ',
-    set_timer: 'Set a timer for ',
-    reset_chat: 'Reset the chat',
-    browser_navigate: 'Open the website ',
-    browser_read_page: 'Read the current page',
-    browser_click: 'Click ',
-    type_text: 'Type this where my cursor is: ',
-    spotify_now_playing: "What's playing on Spotify?",
-    spotify_play_pause: 'Pause the music',
-    spotify_next: 'Skip to the next track',
-    spotify_previous: 'Go to the previous track',
-    spotify_set_volume: 'Set the volume to ',
-    spotify_play: 'Play the song ',
-    spotify_play_playlist: 'Play my playlist ',
-    spotify_queue: 'Queue up the song ',
-    spotify_list_playlists: 'List my playlists',
-    spotify_list_devices: 'List my Spotify devices',
-    spotify_transfer_playback: 'Move playback to ',
+  function syncCursor() {
+    cursor = inputEl?.selectionStart ?? text.length
   }
 
-  // The palette is open whenever the input begins with "/" and there are matches.
-  $: query = text.startsWith('/') ? text.slice(1).toLowerCase() : null
+  function onInput() {
+    dismissed = false // typing re-opens the palette after an Escape
+    syncCursor()
+  }
+
+  // The active slash token is the text from the "/" nearest before the cursor up to the
+  // cursor, with no whitespace in between. This lets the palette trigger anywhere — and
+  // chain: e.g. "/get_weather Sydney /get_time" reopens it after the second slash.
+  $: query = (() => {
+    const before = text.slice(0, cursor)
+    const slashIdx = before.lastIndexOf('/')
+    if (slashIdx === -1) return null
+    const seg = before.slice(slashIdx + 1)
+    if (/\s/.test(seg)) return null
+    return seg.toLowerCase()
+  })()
   $: matches =
     query !== null
       ? $tools.filter(
@@ -42,17 +40,33 @@
             t.description.toLowerCase().includes(query),
         )
       : []
-  $: showPalette = query !== null && matches.length > 0
+  $: showPalette = query !== null && matches.length > 0 && !dismissed
   $: if (selected >= matches.length) selected = 0
 
-  function choose(tool: Tool) {
-    text = TEMPLATES[tool.name] ?? tool.description
+  async function choose(tool: Tool) {
+    // Replace just the active slash token with /tool_name, keeping the rest of the line.
+    const before = text.slice(0, cursor)
+    const slashIdx = before.lastIndexOf('/')
+    if (slashIdx === -1) return
+    const after = text.slice(cursor)
+    const token = `/${tool.name} `
+    text = before.slice(0, slashIdx) + token + after
+    const pos = slashIdx + token.length
+    await tick()
     inputEl?.focus()
+    inputEl?.setSelectionRange(pos, pos)
+    cursor = pos
+  }
+
+  async function moveSelection(delta: number) {
+    selected = (selected + delta + matches.length) % matches.length
+    await tick()
+    paletteEl?.querySelector('.opt.sel')?.scrollIntoView({ block: 'nearest' })
   }
 
   async function submit() {
     const t = text.trim()
-    if (!t || t.startsWith('/')) return
+    if (!t) return
     text = ''
     await sendMessage(t)
   }
@@ -61,22 +75,22 @@
     if (showPalette) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        selected = (selected + 1) % matches.length
+        moveSelection(1)
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        selected = (selected - 1 + matches.length) % matches.length
+        moveSelection(-1)
         return
       }
-      if (e.key === 'Enter' || e.key === 'Tab') {
+      if (e.key === 'Tab') {
         e.preventDefault()
         choose(matches[selected])
         return
       }
       if (e.key === 'Escape') {
         e.preventDefault()
-        text = ''
+        dismissed = true
         return
       }
     }
@@ -89,8 +103,8 @@
 
 <div class="input-wrap">
   {#if showPalette}
-    <div class="palette panel">
-      <div class="palette-hint">Tools · ↑↓ to navigate, ↵ to insert</div>
+    <div class="palette panel" bind:this={paletteEl}>
+      <div class="palette-hint">Tools · ↑↓ to navigate, ⇥ to insert</div>
       {#each matches as t, i (t.name)}
         <button
           class="opt {i === selected ? 'sel' : ''}"
@@ -116,6 +130,10 @@
       bind:this={inputEl}
       bind:value={text}
       on:keydown={onKey}
+      on:input={onInput}
+      on:keyup={syncCursor}
+      on:click={syncCursor}
+      on:select={syncCursor}
       placeholder="Type to Lumi, / for tools, or speak…"
       autocomplete="off"
     />
