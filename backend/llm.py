@@ -21,6 +21,14 @@ GROQ_MODEL   = os.environ.get("GROQ_MODEL",   "meta-llama/llama-4-scout-17b-16e-
 
 SYSTEM_PROMPT = open(os.path.join(os.path.dirname(__file__), "lumi.md")).read()
 
+
+def _system_prompt() -> str:
+    """Base prompt plus the catalog of tool modules the model can load via find_tools."""
+    from .mcp import registry as reg
+    catalog = reg.tool_catalog()
+    return f"{SYSTEM_PROMPT}\n\n{catalog}" if catalog else SYSTEM_PROMPT
+
+
 _cancel = threading.Event()
 
 # Gemini state
@@ -38,16 +46,17 @@ def cancel():
 
 def clear_history():
     global _gemini_chat, _groq_pending_clear
+    from .mcp import registry as reg
+    reg.reset_active()  # forget any tools loaded via find_tools; back to the default set
     if PROVIDER == "groq":
         # Defer the actual clear — calling this mid-tool-loop would corrupt the
         # in-progress conversation turn. _ask_groq clears at the start of the next call.
         _groq_pending_clear = True
     else:
-        from .mcp.registry import TOOL_CALLABLES
         model = genai.GenerativeModel(
             model_name=GEMINI_MODEL,
-            system_instruction=SYSTEM_PROMPT,
-            tools=TOOL_CALLABLES,
+            system_instruction=_system_prompt(),
+            tools=reg.active_callables(),
         )
         _gemini_chat = model.start_chat(history=[])
 
@@ -68,7 +77,7 @@ def _execute_tool(name: str, args: dict) -> str:
 
 def load():
     global _gemini_chat, _groq_client
-    from .mcp.registry import TOOL_CALLABLES
+    from .mcp import registry as reg
     if PROVIDER == "groq":
         api_key = os.environ.get("GROQ_API_KEY", "")
         if not api_key:
@@ -81,13 +90,15 @@ def load():
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
             model_name=GEMINI_MODEL,
-            system_instruction=SYSTEM_PROMPT,
-            tools=TOOL_CALLABLES,
+            system_instruction=_system_prompt(),
+            tools=reg.active_callables(),
         )
         _gemini_chat = model.start_chat(history=[])
 
 
 def _ask_gemini(text: str) -> str:
+    global _gemini_chat
+    from .mcp import registry as reg
     response = _gemini_chat.send_message(text)
 
     for _ in range(5):
@@ -100,6 +111,7 @@ def _ask_gemini(text: str) -> str:
         if not fc_parts:
             break
 
+        before = reg.active_version
         fn_responses = []
         for part in fc_parts:
             fc = part.function_call
@@ -110,6 +122,16 @@ def _ask_gemini(text: str) -> str:
                     response={"result": result},
                 )
             ))
+
+        # If find_tools loaded new tools this round, rebuild the chat (preserving history)
+        # so the model can call the freshly-loaded tools on its next turn.
+        if reg.active_version != before:
+            model = genai.GenerativeModel(
+                model_name=GEMINI_MODEL,
+                system_instruction=_system_prompt(),
+                tools=reg.active_callables(),
+            )
+            _gemini_chat = model.start_chat(history=_gemini_chat.history)
 
         response = _gemini_chat.send_message(fn_responses)
 
@@ -124,7 +146,7 @@ def _ask_gemini(text: str) -> str:
 
 def _ask_groq(text: str) -> str:
     global _groq_pending_clear
-    from .mcp.registry import TOOL_SCHEMAS
+    from .mcp import registry as reg
     if _groq_pending_clear:
         _groq_history.clear()
         _groq_pending_clear = False
@@ -133,8 +155,8 @@ def _ask_groq(text: str) -> str:
     for _ in range(6):  # up to 5 tool rounds + final reply
         response = _groq_client.chat.completions.create(
             model=GROQ_MODEL,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + _groq_history,
-            tools=TOOL_SCHEMAS,
+            messages=[{"role": "system", "content": _system_prompt()}] + _groq_history,
+            tools=reg.active_schemas(),
         )
         message = response.choices[0].message
 

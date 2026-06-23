@@ -15,6 +15,12 @@ import json
 import colorsys
 from dotenv import load_dotenv
 
+from ._registry import Registry
+
+registry = Registry()
+REQUIRES_ENV = "TUYA_DEVICE_ID"  # only registered by registry.py when this is set
+DESCRIPTION = "Control Tuya/Smart Life smart lights: power, brightness, colour, white temperature."
+
 load_dotenv()
 
 _cloud = None
@@ -154,6 +160,7 @@ def _label(device_id: str) -> str:
     return "light"
 
 
+@registry.tool
 def light_list() -> str:
     """List the smart lights available to control, by name."""
     try:
@@ -165,6 +172,7 @@ def light_list() -> str:
     return "I can control these lights: " + ", ".join(lights) + "."
 
 
+@registry.tool
 def light_set_power(on: bool, name: str = "") -> str:
     """Turn a smart light on or off.
 
@@ -183,6 +191,7 @@ def light_set_power(on: bool, name: str = "") -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def light_set_all_power(on: bool) -> str:
     """Turn every smart light on or off at once.
 
@@ -210,6 +219,7 @@ def light_set_all_power(on: bool) -> str:
     return f"Turned {', '.join(done)} {word}, but couldn't reach {', '.join(failed)}."
 
 
+@registry.tool
 def light_set_brightness(percent: int, name: str = "") -> str:
     """Set a smart light's brightness.
 
@@ -231,6 +241,7 @@ def light_set_brightness(percent: int, name: str = "") -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def light_set_color(color: str, name: str = "") -> str:
     """Set a smart light's color.
 
@@ -255,6 +266,7 @@ def light_set_color(color: str, name: str = "") -> str:
         return _fmt_err(e)
 
 
+@registry.tool(required=["warmth"])
 def light_set_white(warmth: str = "neutral", name: str = "") -> str:
     """Switch a smart light to white and set how warm or cool it is.
 
@@ -279,6 +291,7 @@ def light_set_white(warmth: str = "neutral", name: str = "") -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def light_status(name: str = "") -> str:
     """Get the current state of a smart light (on/off, brightness, mode).
 
@@ -306,125 +319,3 @@ def light_status(name: str = "") -> str:
     if isinstance(bright, int):
         parts.append(f"brightness {round(bright / 10)}%")
     return f"{_label(dev)} is " + ", ".join(parts) + "."
-
-
-TOOL_FNS: dict = {
-    "light_list": light_list,
-    "light_set_power": light_set_power,
-    "light_set_all_power": light_set_all_power,
-    "light_set_brightness": light_set_brightness,
-    "light_set_color": light_set_color,
-    "light_set_white": light_set_white,
-    "light_status": light_status,
-}
-
-_NAME_PROP = {
-    "type": "string",
-    "description": "Which light, by name (e.g. 'desk lamp'). Leave empty if there's only one.",
-}
-
-TOOL_SCHEMAS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "light_list",
-            "description": "List the smart lights available to control, by name.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "light_set_power",
-            "description": "Turn a smart light on or off.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "on": {"type": "boolean", "description": "True for on, False for off."},
-                    "name": _NAME_PROP,
-                },
-                "required": ["on"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "light_set_all_power",
-            "description": "Turn every smart light on or off at once.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "on": {"type": "boolean", "description": "True for all on, False for all off."}
-                },
-                "required": ["on"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "light_set_brightness",
-            "description": "Set a smart light's brightness.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "percent": {
-                        "type": "integer",
-                        "description": "Brightness from 1 (dimmest) to 100 (brightest).",
-                    },
-                    "name": _NAME_PROP,
-                },
-                "required": ["percent"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "light_set_color",
-            "description": "Set a smart light's color.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "color": {
-                        "type": "string",
-                        "description": "Color name like 'blue' or 'warm white', or hex like '#ff8800'.",
-                    },
-                    "name": _NAME_PROP,
-                },
-                "required": ["color"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "light_set_white",
-            "description": "Switch a smart light to white and set warm/cool.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "warmth": {
-                        "type": "string",
-                        "description": "One of 'warm', 'soft', 'neutral', 'cool', 'daylight'.",
-                    },
-                    "name": _NAME_PROP,
-                },
-                "required": ["warmth"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "light_status",
-            "description": "Get the current state of a smart light.",
-            "parameters": {
-                "type": "object",
-                "properties": {"name": _NAME_PROP},
-                "required": [],
-            },
-        },
-    },
-]

@@ -1,6 +1,11 @@
 """Browser tools — control Chrome via AppleScript (no special flags required)."""
 import subprocess
 
+from ._registry import Registry
+
+registry = Registry()
+DESCRIPTION = "Control the Chrome browser: navigate to URLs, read the page, click elements."
+
 
 def _osascript(script: str) -> str:
     result = subprocess.run(
@@ -17,6 +22,7 @@ def _ensure_chrome():
     _osascript('tell application "Google Chrome" to activate')
 
 
+@registry.tool
 def browser_navigate(url: str) -> str:
     """Navigate Chrome to a URL.
 
@@ -31,6 +37,7 @@ def browser_navigate(url: str) -> str:
         return f"Error navigating to {url}: {e}"
 
 
+@registry.tool
 def browser_read_page() -> str:
     """Read the visible text content of the current page in Chrome."""
     try:
@@ -50,6 +57,7 @@ def browser_read_page() -> str:
         return f"Error reading page: {e}"
 
 
+@registry.tool
 def browser_click(text: str) -> str:
     """Click a visible element on the current Chrome page by its text content.
 
@@ -80,52 +88,3 @@ def browser_click(text: str) -> str:
                 "In Chrome, go to View > Developer > Allow JavaScript from Apple Events, then try again."
             )
         return f"Error clicking '{text}': {e}"
-
-
-TOOL_FNS: dict = {
-    "browser_navigate": browser_navigate,
-    "browser_read_page": browser_read_page,
-    "browser_click": browser_click,
-}
-
-TOOL_SCHEMAS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_navigate",
-            "description": "Navigate Chrome to a URL.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "Full URL to navigate to."}
-                },
-                "required": ["url"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_read_page",
-            "description": "Read the visible text content of the current page in Chrome.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_click",
-            "description": "Click a visible element on the current Chrome page by its text label.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {
-                        "type": "string",
-                        "description": "The visible text of the element to click, e.g. 'Sign in'.",
-                    }
-                },
-                "required": ["text"],
-            },
-        },
-    },
-]

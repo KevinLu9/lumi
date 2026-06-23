@@ -3,6 +3,11 @@ import math
 import threading
 import requests
 
+from ._registry import Registry
+
+registry = Registry()
+DESCRIPTION = "Core utilities: time, weather, forecast, calculator, timers."
+
 _timer_callback = None
 _clear_history_callback = None
 
@@ -17,11 +22,13 @@ def register_clear_history_callback(fn):
     _clear_history_callback = fn
 
 
+@registry.tool
 def get_time() -> str:
     """Get the current date and time."""
     return datetime.now().strftime("%A, %d %B %Y, %I:%M %p")
 
 
+@registry.tool
 def get_weather(location: str) -> str:
     """Get the current weather for a city or location.
 
@@ -46,6 +53,40 @@ def get_weather(location: str) -> str:
         return f"Could not get weather for {location}: {e}"
 
 
+@registry.tool
+def get_forecast(location: str, days: int = 3) -> str:
+    """Get the multi-day weather forecast for a city or location.
+
+    Args:
+        location: City name or location, e.g. 'Sydney' or 'New York'.
+        days: How many days to forecast, from 1 to 3 (today counts as day 1).
+    """
+    try:
+        resp = requests.get(
+            f"https://wttr.in/{requests.utils.quote(location)}",
+            params={"format": "j1"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        n = max(1, min(3, days))
+        lines = []
+        for day in data["weather"][:n]:
+            when = datetime.strptime(day["date"], "%Y-%m-%d").strftime("%A")
+            # The midday entry (time '1200') is the most representative for the day.
+            hourly = day["hourly"]
+            midday = next((h for h in hourly if h["time"] == "1200"), hourly[len(hourly) // 2])
+            desc = midday["weatherDesc"][0]["value"]
+            rain = midday["chanceofrain"]
+            lines.append(
+                f"{when}: {desc}, {day['mintempC']}–{day['maxtempC']}°C, {rain}% chance of rain"
+            )
+        return f"{location} forecast — " + "; ".join(lines)
+    except Exception as e:
+        return f"Could not get forecast for {location}: {e}"
+
+
+@registry.tool
 def calculate(expression: str) -> str:
     """Evaluate a mathematical expression and return the result.
 
@@ -61,6 +102,7 @@ def calculate(expression: str) -> str:
         return f"Error: {e}"
 
 
+@registry.tool
 def set_timer(seconds: int, label: str = "Timer") -> str:
     """Set a countdown timer that will announce when it finishes.
 
@@ -76,6 +118,7 @@ def set_timer(seconds: int, label: str = "Timer") -> str:
     return f"Timer set for {seconds} seconds: {label}"
 
 
+@registry.tool
 def reset_chat() -> str:
     """Clear Lumi's conversation history and start a fresh session."""
     if _clear_history_callback:
@@ -83,88 +126,19 @@ def reset_chat() -> str:
     return "Chat history cleared."
 
 
-TOOL_FNS: dict = {
-    "get_time": get_time,
-    "get_weather": get_weather,
-    "calculate": calculate,
-    "set_timer": set_timer,
-    "reset_chat": reset_chat,
-}
+@registry.tool
+def find_tools(pattern: str) -> str:
+    """Load extra tools so you can use them. Lumi starts with only a few tools; call this
+    to bring in more on demand. The matched tools stay available for the rest of the
+    conversation. Check the list of loadable tool modules in your instructions first.
 
-# OpenAI / Groq JSON schema format — also used to build Gemini declarations manually.
-TOOL_SCHEMAS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_time",
-            "description": "Get the current date and time.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "description": "Get the current weather for a city or location.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "City name or location, e.g. 'Sydney' or 'New York'.",
-                    }
-                },
-                "required": ["location"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "calculate",
-            "description": "Evaluate a mathematical expression and return the result.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "expression": {
-                        "type": "string",
-                        "description": "A math expression such as '2 + 2', 'sqrt(16)', or 'sin(pi / 2)'.",
-                    }
-                },
-                "required": ["expression"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "set_timer",
-            "description": "Set a countdown timer that will announce when it finishes.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "seconds": {
-                        "type": "integer",
-                        "description": "How many seconds to wait before the timer fires.",
-                    },
-                    "label": {
-                        "type": "string",
-                        "description": "A short name for the timer, e.g. 'pasta' or 'meeting'.",
-                    },
-                },
-                "required": ["seconds"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "reset_chat",
-            "description": "Clear Lumi's conversation history and start a fresh session.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-]
+    Args:
+        pattern: A regular expression matched against tool module names and tool names,
+            e.g. 'spotify' to load all music tools, 'light' for smart lights, or
+            'light_set.*' to load just specific ones.
+    """
+    from . import registry as _registry_mod
+    return _registry_mod.activate_matching(pattern)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,11 @@ the app that launched Lumi (System Settings > Privacy & Security > Accessibility
 import subprocess
 import time
 
+from ._registry import Registry
+
+registry = Registry()
+DESCRIPTION = "Type dictated text into whatever app or field the cursor is focused on."
+
 
 def _osascript(script: str) -> str:
     result = subprocess.run(
@@ -17,6 +22,7 @@ def _osascript(script: str) -> str:
     return result.stdout.strip()
 
 
+@registry.tool
 def type_text(text: str) -> str:
     """Type text into wherever the cursor currently is — the focused app or text field.
 
@@ -48,31 +54,3 @@ def type_text(text: str) -> str:
         return f"Error typing text: {e}"
     except Exception as e:
         return f"Error typing text: {e}"
-
-
-TOOL_FNS: dict = {
-    "type_text": type_text,
-}
-
-TOOL_SCHEMAS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "type_text",
-            "description": (
-                "Type text into wherever the cursor currently is — the focused app or "
-                "text field. Use to insert dictated text into another application."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {
-                        "type": "string",
-                        "description": "The text to insert at the current cursor location.",
-                    }
-                },
-                "required": ["text"],
-            },
-        },
-    },
-]

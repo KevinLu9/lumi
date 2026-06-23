@@ -4,6 +4,12 @@ Run `python -m backend.mcp.spotify_auth` once to authenticate and cache the toke
 import os
 from dotenv import load_dotenv
 
+from ._registry import Registry
+
+registry = Registry()
+REQUIRES_ENV = "SPOTIFY_CLIENT_ID"  # only registered by registry.py when this is set
+DESCRIPTION = "Spotify music playback: play, pause, skip, queue, playlists, volume, devices."
+
 load_dotenv()
 
 _sp = None
@@ -38,6 +44,7 @@ def _fmt_err(e) -> str:
     return f"Spotify error: {e}"
 
 
+@registry.tool
 def spotify_now_playing() -> str:
     """Get the currently playing track on Spotify including artist and progress."""
     try:
@@ -58,6 +65,7 @@ def spotify_now_playing() -> str:
     return f"'{track}' by {artists} from '{album}' — {progress}/{duration} ({state})"
 
 
+@registry.tool
 def spotify_play_pause() -> str:
     """Toggle Spotify playback — pause if playing, resume if paused."""
     try:
@@ -73,6 +81,7 @@ def spotify_play_pause() -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_next() -> str:
     """Skip to the next track on Spotify."""
     try:
@@ -82,6 +91,7 @@ def spotify_next() -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_previous() -> str:
     """Go back to the previous track on Spotify."""
     try:
@@ -91,6 +101,7 @@ def spotify_previous() -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_set_volume(volume_percent: int) -> str:
     """Set the Spotify playback volume.
 
@@ -105,6 +116,7 @@ def spotify_set_volume(volume_percent: int) -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_play(query: str) -> str:
     """Search Spotify and immediately play the best matching song or artist.
 
@@ -135,6 +147,7 @@ def spotify_play(query: str) -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_play_playlist(name: str) -> str:
     """Find and play one of the user's Spotify playlists by name.
 
@@ -156,6 +169,7 @@ def spotify_play_playlist(name: str) -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_queue(query: str) -> str:
     """Search Spotify and add the best matching track to the queue.
 
@@ -175,6 +189,7 @@ def spotify_queue(query: str) -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_transfer_playback(device_name: str) -> str:
     """Transfer Spotify playback to a different device by name.
 
@@ -197,6 +212,7 @@ def spotify_transfer_playback(device_name: str) -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_list_devices() -> str:
     """List all Spotify-connected devices and which one is currently active."""
     try:
@@ -212,6 +228,7 @@ def spotify_list_devices() -> str:
         return _fmt_err(e)
 
 
+@registry.tool
 def spotify_list_playlists() -> str:
     """List all of the user's Spotify playlists."""
     try:
@@ -223,154 +240,3 @@ def spotify_list_playlists() -> str:
         return ", ".join(p["name"] for p in playlists)
     except Exception as e:
         return _fmt_err(e)
-
-
-TOOL_FNS: dict = {
-    "spotify_now_playing": spotify_now_playing,
-    "spotify_play_pause": spotify_play_pause,
-    "spotify_next": spotify_next,
-    "spotify_previous": spotify_previous,
-    "spotify_set_volume": spotify_set_volume,
-    "spotify_play": spotify_play,
-    "spotify_play_playlist": spotify_play_playlist,
-    "spotify_queue": spotify_queue,
-    "spotify_list_playlists": spotify_list_playlists,
-    "spotify_list_devices": spotify_list_devices,
-    "spotify_transfer_playback": spotify_transfer_playback,
-}
-
-TOOL_SCHEMAS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_now_playing",
-            "description": "Get the currently playing track on Spotify including artist and progress.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_play_pause",
-            "description": "Toggle Spotify playback — pause if playing, resume if paused.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_next",
-            "description": "Skip to the next track on Spotify.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_previous",
-            "description": "Go back to the previous track on Spotify.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_set_volume",
-            "description": "Set the Spotify playback volume.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "volume_percent": {
-                        "type": "integer",
-                        "description": "Volume level from 0 (silent) to 100 (max).",
-                    }
-                },
-                "required": ["volume_percent"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_play",
-            "description": "Search Spotify and immediately play the best matching song or artist.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Song title, artist name, or 'song by artist'.",
-                    }
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_play_playlist",
-            "description": "Find and play one of the user's Spotify playlists by name.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Full or partial playlist name.",
-                    }
-                },
-                "required": ["name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_queue",
-            "description": "Search Spotify and add the best matching track to the queue.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Song title or 'song by artist'.",
-                    }
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_list_playlists",
-            "description": "List all of the user's Spotify playlists.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_list_devices",
-            "description": "List all Spotify-connected devices and which one is currently active.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "spotify_transfer_playback",
-            "description": "Transfer Spotify playback to a different device by name.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "device_name": {
-                        "type": "string",
-                        "description": "Full or partial name of the target device, e.g. 'MacBook' or 'Kitchen'.",
-                    }
-                },
-                "required": ["device_name"],
-            },
-        },
-    },
-]
