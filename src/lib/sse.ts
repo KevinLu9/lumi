@@ -33,6 +33,11 @@ function handle(ev: Event) {
         [...t, { role: 'tool', name: ev.name, args: ev.args ?? {}, result: ev.result ?? '' }],
       )
       break
+    case 'weather':
+      transcript.update((t) =>
+        [...t, { role: 'weather', location: ev.location ?? '', days: ev.days ?? [] }],
+      )
+      break
     case 'chat_reset':
       transcript.set([{ role: 'system', text: 'Chat reset' }])
       break

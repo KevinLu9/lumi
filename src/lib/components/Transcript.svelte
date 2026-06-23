@@ -1,6 +1,7 @@
 <script lang="ts">
   import { afterUpdate, type Component } from 'svelte'
   import { ArrowUp, ArrowDown, Database, Brain } from '@lucide/svelte'
+  import WeatherWidget from './WeatherWidget.svelte'
   import { transcript, type Usage } from '../stores'
 
   let el: HTMLDivElement
@@ -48,7 +49,9 @@
 
 <div class="log" bind:this={el}>
   {#each $transcript as item}
-    {#if item.role === 'tool'}
+    {#if item.role === 'weather'}
+      <WeatherWidget location={item.location} days={item.days} />
+    {:else if item.role === 'tool'}
       <details class="tool">
         <summary>
           <span class="chev">▸</span>

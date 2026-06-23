@@ -70,6 +70,13 @@ def _update_state(event_type: str, data: dict) -> None:
             "result": data.get("result", ""),
         })
         del current_state["transcript"][:-_MAX_TRANSCRIPT]
+    elif event_type == "weather":
+        current_state["transcript"].append({
+            "role": "weather",
+            "location": data.get("location", ""),
+            "days": data.get("days") or [],
+        })
+        del current_state["transcript"][:-_MAX_TRANSCRIPT]
     elif event_type == "chat_reset":
         current_state["transcript"] = []
     elif event_type == "tools_active":

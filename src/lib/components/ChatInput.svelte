@@ -23,7 +23,7 @@
 
   // The active slash token is the text from the "/" nearest before the cursor up to the
   // cursor, with no whitespace in between. This lets the palette trigger anywhere — and
-  // chain: e.g. "/get_weather Sydney /get_time" reopens it after the second slash.
+  // chain: e.g. "/get_forecast Sydney /get_time" reopens it after the second slash.
   $: query = (() => {
     const before = text.slice(0, cursor)
     const slashIdx = before.lastIndexOf('/')

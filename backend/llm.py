@@ -88,6 +88,11 @@ def _add_gemini_usage(acc: dict, md) -> None:
     acc["reasoning"] += getattr(md, "thoughts_token_count", 0) or 0
 
 
+# Tools that render their own UI (via a dedicated event) and so don't need the generic
+# tool-call collapsible in the chat.
+_SELF_RENDERED = {"get_forecast"}
+
+
 def _execute_tool(name: str, args: dict) -> str:
     from .mcp import registry as reg
     fn = reg.TOOL_FNS.get(name)
@@ -99,7 +104,8 @@ def _execute_tool(name: str, args: dict) -> str:
         result = str(fn(**args))
     except Exception as e:
         result = f"Tool error: {e}"
-    events.emit("tool_call", name=name, args=args, result=result)
+    if name not in _SELF_RENDERED:
+        events.emit("tool_call", name=name, args=args, result=result)
     # find_tools (or reset_chat) may have changed which tools are loaded — tell the UI.
     if reg.active_version != before:
         events.emit("tools_active", names=reg.active_tool_names())

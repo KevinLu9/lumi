@@ -10,9 +10,19 @@ export type Usage = {
   cache_write: number
   reasoning: number
 }
+export type ForecastDay = {
+  date: string // ISO yyyy-mm-dd
+  day: string // short weekday, e.g. "Tue"
+  min: number
+  max: number
+  desc: string
+  code: number // WWO condition code
+  rain: number // chance of rain %
+}
 export type TranscriptItem =
   | { role: 'user' | 'lumi' | 'system'; text: string; usage?: Usage }
   | { role: 'tool'; name: string; args: Record<string, unknown>; result: string }
+  | { role: 'weather'; location: string; days: ForecastDay[] }
 export type Tool = { name: string; description: string }
 export type ToolModule = { name: string; description: string; default: boolean; tools: Tool[] }
 

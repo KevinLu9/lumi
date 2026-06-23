@@ -6,7 +6,7 @@ import requests
 from ._registry import Registry
 
 registry = Registry()
-DESCRIPTION = "Core utilities: time, weather, forecast, calculator, timers."
+DESCRIPTION = "Core utilities: time, weather forecast, calculator, timers."
 
 _timer_callback = None
 _clear_history_callback = None
@@ -29,8 +29,11 @@ def get_time() -> str:
 
 
 @registry.tool
-def get_weather(location: str) -> str:
-    """Get the current weather for a city or location.
+def get_forecast(location: str) -> str:
+    """Get the 3-day weather forecast for a city or location.
+
+    Also renders a forecast widget in the UI. Use this whenever the user asks about the
+    weather — current conditions are day 1 of the forecast.
 
     Args:
         location: City name or location, e.g. 'Sydney' or 'New York'.
@@ -43,44 +46,29 @@ def get_weather(location: str) -> str:
         )
         resp.raise_for_status()
         data = resp.json()
-        current = data["current_condition"][0]
-        desc = current["weatherDesc"][0]["value"]
-        temp_c = current["temp_C"]
-        feels_c = current["FeelsLikeC"]
-        humidity = current["humidity"]
-        return f"{location}: {desc}, {temp_c}°C (feels like {feels_c}°C), humidity {humidity}%"
-    except Exception as e:
-        return f"Could not get weather for {location}: {e}"
-
-
-@registry.tool
-def get_forecast(location: str, days: int = 3) -> str:
-    """Get the multi-day weather forecast for a city or location.
-
-    Args:
-        location: City name or location, e.g. 'Sydney' or 'New York'.
-        days: How many days to forecast, from 1 to 3 (today counts as day 1).
-    """
-    try:
-        resp = requests.get(
-            f"https://wttr.in/{requests.utils.quote(location)}",
-            params={"format": "j1"},
-            timeout=5,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        n = max(1, min(3, days))
-        lines = []
-        for day in data["weather"][:n]:
-            when = datetime.strptime(day["date"], "%Y-%m-%d").strftime("%A")
+        forecast = []
+        for day in data["weather"][:3]:
             # The midday entry (time '1200') is the most representative for the day.
             hourly = day["hourly"]
             midday = next((h for h in hourly if h["time"] == "1200"), hourly[len(hourly) // 2])
-            desc = midday["weatherDesc"][0]["value"]
-            rain = midday["chanceofrain"]
-            lines.append(
-                f"{when}: {desc}, {day['mintempC']}–{day['maxtempC']}°C, {rain}% chance of rain"
-            )
+            forecast.append({
+                "date": day["date"],                                          # ISO yyyy-mm-dd
+                "day": datetime.strptime(day["date"], "%Y-%m-%d").strftime("%a"),
+                "min": int(day["mintempC"]),
+                "max": int(day["maxtempC"]),
+                "desc": midday["weatherDesc"][0]["value"].strip(),
+                "code": int(midday["weatherCode"]),                           # WWO condition code
+                "rain": int(midday["chanceofrain"]),
+            })
+
+        # Side-channel the structured forecast to the UI for the weather widget.
+        from .. import events
+        events.emit("weather", location=location, days=forecast)
+
+        lines = [
+            f"{d['day']}: {d['desc']}, {d['min']}–{d['max']}°C, {d['rain']}% chance of rain"
+            for d in forecast
+        ]
         return f"{location} forecast — " + "; ".join(lines)
     except Exception as e:
         return f"Could not get forecast for {location}: {e}"
@@ -145,6 +133,6 @@ if __name__ == "__main__":
     print("get_time:", get_time())
     print("calculate 2+2:", calculate("2+2"))
     print("calculate sqrt(144):", calculate("sqrt(144)"))
-    print("weather Sydney:", get_weather("Sydney"))
+    print("forecast Sydney:", get_forecast("Sydney"))
     print("set_timer 3s:", set_timer(3, "test"))
     import time; time.sleep(4)
