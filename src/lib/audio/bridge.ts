@@ -1,4 +1,5 @@
 import { Player } from "./player";
+import { audioLevel } from "../stores";
 import workletUrl from "./worklet.js?url";
 
 // Owns the /ws/audio WebSocket plus mic capture and TTS playback. Mic frames go up as
@@ -8,9 +9,13 @@ export class AudioBridge {
   private player: Player;
   private micCtx: AudioContext | null = null;
   private micStream: MediaStream | null = null;
+  private level = 0; // smoothed 0..1, shared by mic + playback metering
 
   constructor() {
-    this.player = new Player(() => this.send({ type: "playback_ended" }));
+    this.player = new Player(
+      () => this.send({ type: "playback_ended" }),
+      (rms) => this.reportLevel(rms),
+    );
     const proto = location.protocol === "https:" ? "wss" : "ws";
     this.ws = new WebSocket(`${proto}://${location.host}/ws/audio`);
     this.ws.binaryType = "arraybuffer";
@@ -36,6 +41,16 @@ export class AudioBridge {
     this.player.play(sampleRate, samples);
   }
 
+  // Normalise a raw RMS (speech sits around 0.01..0.2) to 0..1 and ease toward
+  // it so the orb glides instead of strobing. A snappier rise than fall keeps
+  // pulses lively while the tail settles smoothly.
+  private reportLevel(rms: number) {
+    const target = Math.min(1, rms * 6);
+    const ease = target > this.level ? 0.5 : 0.15;
+    this.level += (target - this.level) * ease;
+    audioLevel.set(this.level < 0.001 ? 0 : this.level);
+  }
+
   send(msg: unknown) {
     if (this.ws.readyState === WebSocket.OPEN)
       this.ws.send(JSON.stringify(msg));
@@ -56,6 +71,9 @@ export class AudioBridge {
     const node = new AudioWorkletNode(ctx, "mic-processor");
     node.port.onmessage = (e) => {
       const frame = e.data as Float32Array;
+      let sum = 0;
+      for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+      this.reportLevel(Math.sqrt(sum / frame.length));
       if (this.ws.readyState === WebSocket.OPEN) this.ws.send(frame.buffer);
     };
     src.connect(node);
@@ -75,5 +93,7 @@ export class AudioBridge {
     this.micCtx?.close();
     this.micStream = null;
     this.micCtx = null;
+    this.level = 0;
+    audioLevel.set(0);
   }
 }

@@ -5,10 +5,43 @@ export class Player {
   private nextTime = 0;
   private sources: AudioBufferSourceNode[] = [];
   private onDrained: () => void;
+  private onLevel: (level: number) => void;
+  private analyser: AnalyserNode;
+  private levelBuf: Float32Array<ArrayBuffer>;
+  private rafId = 0;
 
-  constructor(onDrained: () => void) {
+  constructor(
+    onDrained: () => void,
+    onLevel: (level: number) => void = () => {},
+  ) {
     this.ctx = new AudioContext();
     this.onDrained = onDrained;
+    this.onLevel = onLevel;
+    // TTS flows core -> analyser -> speakers, so we can meter what's audible in
+    // real time (time-aligned, unlike metering chunks as they arrive).
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.analyser.connect(this.ctx.destination);
+    this.levelBuf = new Float32Array(this.analyser.fftSize);
+  }
+
+  // rAF loop: report the playing RMS while anything is scheduled, then zero out.
+  private startMetering() {
+    if (this.rafId) return;
+    const tick = () => {
+      this.analyser.getFloatTimeDomainData(this.levelBuf);
+      let sum = 0;
+      for (let i = 0; i < this.levelBuf.length; i++)
+        sum += this.levelBuf[i] * this.levelBuf[i];
+      this.onLevel(Math.sqrt(sum / this.levelBuf.length));
+      if (this.sources.length > 0) {
+        this.rafId = requestAnimationFrame(tick);
+      } else {
+        this.rafId = 0;
+        this.onLevel(0);
+      }
+    };
+    this.rafId = requestAnimationFrame(tick);
   }
 
   resume() {
@@ -20,12 +53,13 @@ export class Player {
     buf.getChannelData(0).set(samples);
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(this.ctx.destination);
+    src.connect(this.analyser);
 
     const start = Math.max(this.ctx.currentTime + 0.02, this.nextTime);
     src.start(start);
     this.nextTime = start + buf.duration;
     this.sources.push(src);
+    this.startMetering();
 
     src.onended = () => {
       this.sources = this.sources.filter((s) => s !== src);
@@ -45,6 +79,7 @@ export class Player {
     }
     this.sources = [];
     this.nextTime = 0;
+    this.onLevel(0);
   }
 
   // Short activation chime, played locally.

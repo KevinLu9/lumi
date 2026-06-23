@@ -71,3 +71,6 @@ export const schedules = writable<Schedule[]>([]);
 export const spotifyConfigured = writable(true);
 export const connected = writable(false);
 export const micOn = writable(false);
+// Smoothed audio amplitude (0..1) of whichever stream is live: your mic while
+// recording, Lumi's TTS while speaking. Drives the orb's reactive pulse/glow.
+export const audioLevel = writable(0);
