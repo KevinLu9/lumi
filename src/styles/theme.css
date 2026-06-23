@@ -11,13 +11,21 @@
   --accent2-glow: rgba(245, 158, 11, 0.5);
   --ok: #34d399;
   --warn: #fbbf24;
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   margin: 0;
   height: 100%;
   background:
@@ -28,10 +36,17 @@ html, body {
   overflow: hidden;
 }
 
-#app { height: 100%; }
+#app {
+  height: 100%;
+}
 
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(255, 170, 90, 0.2); border-radius: 8px; }
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 170, 90, 0.2);
+  border-radius: 8px;
+}
 
 .panel {
   background: var(--panel);
@@ -60,17 +75,39 @@ html, body {
   cursor: pointer;
   transition: all 0.15s ease;
 }
-.btn:hover { border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
-.btn.danger:hover { border-color: var(--accent2); box-shadow: 0 0 14px var(--accent2-glow); }
-.btn:active { transform: translateY(1px); }
-.btn.active { border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
+.btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+.btn.danger:hover {
+  border-color: var(--accent2);
+  box-shadow: 0 0 14px var(--accent2-glow);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
 
 @media (max-width: 1100px) {
   /* Let the page scroll on small screens instead of a fixed full-height app. */
-  html, body { overflow-y: auto; height: auto; min-height: 100%; }
-  #app { height: auto; min-height: 100%; }
+  html,
+  body {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100%;
+  }
+  #app {
+    height: auto;
+    min-height: 100%;
+  }
 }
 
 @media (max-width: 700px) {
-  .btn { padding: 11px 14px; min-height: 44px; }  /* comfortable touch targets */
+  .btn {
+    padding: 11px 14px;
+    min-height: 44px;
+  } /* comfortable touch targets */
 }

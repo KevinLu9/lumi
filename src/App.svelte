@@ -1,52 +1,52 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
-  import { connectSSE } from './lib/sse'
-  import { AudioBridge } from './lib/audio/bridge'
-  import { status, micOn } from './lib/stores'
-  import Orb from './lib/components/Orb.svelte'
-  import Particles from './lib/components/Particles.svelte'
-  import Transcript from './lib/components/Transcript.svelte'
-  import ChatInput from './lib/components/ChatInput.svelte'
-  import LeftPanel from './lib/components/LeftPanel.svelte'
-  import RightPanel from './lib/components/RightPanel.svelte'
+  import { onMount, onDestroy } from "svelte";
+  import { connectSSE } from "./lib/sse";
+  import { AudioBridge } from "./lib/audio/bridge";
+  import { status, micOn } from "./lib/stores";
+  import Orb from "./lib/components/Orb.svelte";
+  import Particles from "./lib/components/Particles.svelte";
+  import Transcript from "./lib/components/Transcript.svelte";
+  import ChatInput from "./lib/components/ChatInput.svelte";
+  import LeftPanel from "./lib/components/LeftPanel.svelte";
+  import RightPanel from "./lib/components/RightPanel.svelte";
 
-  let es: EventSource
-  let bridge: AudioBridge
+  let es: EventSource;
+  let bridge: AudioBridge;
 
   async function toggleMic() {
-    if (!bridge) return
+    if (!bridge) return;
     if ($micOn) {
-      bridge.stopMic()
-      micOn.set(false)
-      return
+      bridge.stopMic();
+      micOn.set(false);
+      return;
     }
     if (!window.isSecureContext || !navigator.mediaDevices) {
       alert(
-        'The microphone is blocked because this page is not a secure context.\n\n' +
-          'Browsers only allow mic access over https or on localhost. ' +
-          'To use voice from another device, serve Lumi over https (see README), ' +
-          'or just type in the box below — that works anywhere.',
-      )
-      return
+        "The microphone is blocked because this page is not a secure context.\n\n" +
+          "Browsers only allow mic access over https or on localhost. " +
+          "To use voice from another device, serve Lumi over https (see README), " +
+          "or just type in the box below — that works anywhere.",
+      );
+      return;
     }
     try {
-      await bridge.startMic()
-      micOn.set(true)
+      await bridge.startMic();
+      micOn.set(true);
     } catch (e) {
-      console.error('mic error', e)
-      alert('Could not access the microphone. Check browser permissions.')
+      console.error("mic error", e);
+      alert("Could not access the microphone. Check browser permissions.");
     }
   }
 
   onMount(() => {
-    es = connectSSE()
-    bridge = new AudioBridge()
-  })
+    es = connectSSE();
+    bridge = new AudioBridge();
+  });
 
   onDestroy(() => {
-    es?.close()
-    bridge?.stopMic()
-  })
+    es?.close();
+    bridge?.stopMic();
+  });
 </script>
 
 <Particles />
@@ -91,7 +91,10 @@
     color: var(--text);
     align-self: flex-start;
   }
-  .logo { color: var(--accent); margin-right: 6px; }
+  .logo {
+    color: var(--accent);
+    margin-right: 6px;
+  }
   .stage {
     flex: 1;
     display: grid;
@@ -114,11 +117,20 @@
       padding: 16px;
       gap: 18px;
     }
-    .stage { flex: none; padding: 8px 0; }
+    .stage {
+      flex: none;
+      padding: 8px 0;
+    }
   }
 
   @media (max-width: 700px) {
-    .brand { font-size: 15px; letter-spacing: 0.35em; align-self: center; }
-    .center { padding: 14px; }
+    .brand {
+      font-size: 15px;
+      letter-spacing: 0.35em;
+      align-self: center;
+    }
+    .center {
+      padding: 14px;
+    }
   }
 </style>

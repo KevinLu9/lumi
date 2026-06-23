@@ -1,6 +1,6 @@
 <script lang="ts">
-  import StatusBar from './StatusBar.svelte'
-  import ControlButtons from './ControlButtons.svelte'
+  import StatusBar from "./StatusBar.svelte";
+  import ControlButtons from "./ControlButtons.svelte";
 </script>
 
 <aside class="left">
@@ -15,6 +15,14 @@
 </aside>
 
 <style>
-  .left { display: flex; flex-direction: column; gap: 16px; padding: 18px; overflow-y: auto; }
-  .block { padding: 16px; }
+  .left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+    overflow-y: auto;
+  }
+  .block {
+    padding: 16px;
+  }
 </style>

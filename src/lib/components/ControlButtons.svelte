@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { activate, deactivate, interrupt, reset } from '../api'
-  import { active } from '../stores'
+  import { activate, deactivate, interrupt, reset } from "../api";
+  import { active } from "../stores";
 </script>
 
 <div class="controls">
@@ -14,5 +14,9 @@
 </div>
 
 <style>
-  .controls { display: flex; flex-direction: column; gap: 10px; }
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
 </style>
