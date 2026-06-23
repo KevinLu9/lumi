@@ -1,0 +1,6 @@
+dist
+node_modules
+.venv
+*.lock
+package-lock.json
+backend

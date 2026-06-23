@@ -12,13 +12,23 @@
     "preview": "vite preview --host",
     "start": ".venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000",
     "install:py": ".venv/bin/pip install -r requirements.txt",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "format": "prettier --write \"src/**/*.{ts,js,svelte,json,css,html}\" \"*.{json,js,ts}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,svelte,json,css,html}\" \"*.{json,js,ts}\"",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js,svelte,json,css,html}": "prettier --write"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@tsconfig/svelte": "^5.0.4",
     "@vitejs/plugin-basic-ssl": "^2.0.0",
     "concurrently": "^9.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.4",
+    "prettier-plugin-svelte": "^4.1.1",
     "svelte": "^5.19.0",
     "svelte-check": "^4.1.0",
     "typescript": "^5.7.0",
