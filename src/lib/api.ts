@@ -12,7 +12,7 @@ export const reset = () => post("/api/reset");
 export const activate = () => post("/api/activate");
 export const deactivate = () => post("/api/deactivate");
 
-import type { ToolModule, NowPlaying } from "./stores";
+import type { ToolModule, NowPlaying, Schedule } from "./stores";
 
 export async function fetchTools() {
   const r = await fetch("/api/tools");
@@ -26,3 +26,35 @@ export async function fetchNowPlaying() {
 
 export const spotifyControl = (action: "play_pause" | "next" | "previous") =>
   post("/api/spotify/control", { action });
+
+export async function fetchSchedules() {
+  const r = await fetch("/api/schedules");
+  return r.json() as Promise<{ schedules: Schedule[] }>;
+}
+
+export async function createSchedule(when: string, prompt: string, label = "") {
+  const r = await fetch("/api/schedules", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ when, prompt, label }),
+  });
+  return r.json() as Promise<{ ok: boolean; error?: string; id?: string }>;
+}
+
+export async function updateSchedule(
+  id: string,
+  fields: { when?: string; prompt?: string; label?: string },
+) {
+  const r = await fetch(`/api/schedules/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  return r.json() as Promise<{ ok: boolean; error?: string }>;
+}
+
+export const toggleSchedule = (id: string, enabled: boolean) =>
+  post(`/api/schedules/${id}/toggle`, { enabled });
+
+export const deleteSchedule = (id: string) =>
+  fetch(`/api/schedules/${id}`, { method: "DELETE" });

@@ -5,6 +5,7 @@ import {
   transcript,
   activeTools,
   nowPlaying,
+  schedules,
   connected,
   type Status,
 } from "./stores";
@@ -20,6 +21,7 @@ function handle(ev: Event) {
       transcript.set(ev.transcript ?? []);
       activeTools.set(new Set(ev.active_tools ?? []));
       nowPlaying.set(ev.now_playing ?? null);
+      schedules.set(ev.schedules ?? []);
       break;
     case "status":
       status.set(ev.status as Status);
@@ -63,7 +65,10 @@ function handle(ev: Event) {
     case "now_playing":
       nowPlaying.set(ev.track ?? null);
       break;
-    // 'lumi_sentence' and 'timer' are intentionally ignored here.
+    case "schedules":
+      schedules.set(ev.jobs ?? []);
+      break;
+    // 'lumi_sentence', 'timer' and 'schedule_fired' are intentionally ignored here.
   }
 }
 

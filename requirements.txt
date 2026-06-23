@@ -16,6 +16,7 @@ cffi==2.0.0
 charset-normalizer==3.4.7
 click==8.4.1
 colorama==0.4.6
+croniter==6.2.2
 cryptography==49.0.0
 csvw==4.0.0
 ctranslate2==4.8.0

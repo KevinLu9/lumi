@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from . import assistant, events, transcriber, tts
+from . import assistant, events, scheduler, transcriber, tts
 from .mcp import registry as tool_registry
 
 app = FastAPI(title="Lumi")
@@ -97,6 +97,8 @@ async def _startup() -> None:
     tts.set_audio_sink(send_audio=audio_hub.send_audio, send_control=audio_hub.send_control)
     # Load models + start capture loop off the event loop (blocking model loads).
     await asyncio.to_thread(assistant.start_voice_loop, "web")
+    # The scheduler loaded persisted jobs during startup — seed the snapshot with them.
+    events.current_state["schedules"] = scheduler.view()
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +176,61 @@ def post_activate():
 def post_deactivate():
     assistant.deactivate()
     return {"ok": True}
+
+
+@app.get("/api/schedules")
+def get_schedules():
+    return {"schedules": scheduler.view()}
+
+
+class ScheduleCreate(BaseModel):
+    when: str  # cron expr or friendly time, e.g. '07:30' / '30 7 * * 1-5'
+    prompt: str
+    label: str = ""
+
+
+@app.post("/api/schedules")
+def create_schedule(body: ScheduleCreate):
+    try:
+        job = scheduler.add(body.when, body.prompt, body.label)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    return {"ok": True, "id": job.id, "schedules": scheduler.view()}
+
+
+class ScheduleUpdate(BaseModel):
+    when: str | None = None
+    prompt: str | None = None
+    label: str | None = None
+
+
+@app.patch("/api/schedules/{job_id}")
+def update_schedule(job_id: str, body: ScheduleUpdate):
+    try:
+        job = scheduler.update(job_id, body.when, body.prompt, body.label)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    if job is None:
+        return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+    return {"ok": True, "schedules": scheduler.view()}
+
+
+class ScheduleToggle(BaseModel):
+    enabled: bool
+
+
+@app.post("/api/schedules/{job_id}/toggle")
+def toggle_schedule(job_id: str, body: ScheduleToggle):
+    if not scheduler.set_enabled(job_id, body.enabled):
+        return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+    return {"ok": True, "schedules": scheduler.view()}
+
+
+@app.delete("/api/schedules/{job_id}")
+def delete_schedule(job_id: str):
+    if not scheduler.delete(job_id):
+        return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+    return {"ok": True, "schedules": scheduler.view()}
 
 
 @app.get("/api/spotify/now-playing")

@@ -26,7 +26,7 @@
         fpsLimit: 60,
         detectRetina: true,
         particles: {
-          number: { value: 180, density: { enable: true } },
+          number: { value: 90, density: { enable: true } },
           color: { value: ["#fb923c", "#f59e0b", "#ffb86b"] },
           links: {
             enable: true,

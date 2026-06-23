@@ -58,6 +58,16 @@ export type NowPlaying = {
   duration_ms?: number;
 };
 export const nowPlaying = writable<NowPlaying | null>(null);
+export type Schedule = {
+  id: string;
+  prompt: string;
+  label: string;
+  cron: string;
+  when: string; // human-readable, e.g. "07:30 weekdays"
+  enabled: boolean;
+  next_run: number | null; // unix seconds
+};
+export const schedules = writable<Schedule[]>([]);
 export const spotifyConfigured = writable(true);
 export const connected = writable(false);
 export const micOn = writable(false);

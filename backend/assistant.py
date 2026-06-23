@@ -12,6 +12,7 @@ from . import tts
 from . import llm
 from . import transcriber
 from . import events
+from . import scheduler
 
 VOICE_DEBOUNCE_SEC = 4   # seconds of silence before flushing accumulated speech to Lumi
 ACTIVE_TIMEOUT_SEC = 15  # seconds of silence before returning to wake-word mode
@@ -252,6 +253,9 @@ def start_voice_loop(source: str = "web"):
     register_clear_history_callback(_clear_history)
 
     transcriber.set_state_callback(_emit_status)
+
+    # Scheduled jobs drive a full Lumi turn (LLM + spoken response) at their cron time.
+    scheduler.start(action=send_text)
 
     threading.Thread(
         target=transcriber.start,

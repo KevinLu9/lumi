@@ -23,6 +23,7 @@ current_state: dict[str, Any] = {
     "transcript": [],
     "now_playing": None,
     "active_tools": [],   # tool names currently loaded into the LLM context
+    "schedules": [],      # recurring scheduled prompts (see scheduler.py)
 }
 
 # Cap transcript history kept in the snapshot so it doesn't grow unbounded.
@@ -83,6 +84,8 @@ def _update_state(event_type: str, data: dict) -> None:
         current_state["active_tools"] = data.get("names", current_state["active_tools"])
     elif event_type == "now_playing":
         current_state["now_playing"] = data.get("track")
+    elif event_type == "schedules":
+        current_state["schedules"] = data.get("jobs", current_state["schedules"])
 
 
 def emit(event_type: str, **data: Any) -> None:
