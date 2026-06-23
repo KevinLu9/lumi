@@ -44,6 +44,44 @@ def _fmt_err(e) -> str:
     return f"Spotify error: {e}"
 
 
+def now_playing_state() -> dict:
+    """Structured current-playback state for the UI widget (not exposed as an LLM tool).
+
+    Returns album art, track/artist/album, play state and progress so the frontend can
+    render a rich Now Playing card. `track` is None when nothing is playing.
+    """
+    try:
+        current = _get_client().current_playback()
+    except Exception as e:
+        return {"track": None, "error": _fmt_err(e)}
+    if not current or not current.get("item"):
+        return {"track": None}
+    item = current["item"]
+    images = item["album"].get("images", [])
+    return {
+        "track": item["name"],
+        "artist": ", ".join(a["name"] for a in item["artists"]),
+        "album": item["album"]["name"],
+        "image": images[0]["url"] if images else None,
+        "is_playing": bool(current.get("is_playing")),
+        "progress_ms": current.get("progress_ms", 0),
+        "duration_ms": item.get("duration_ms", 0),
+    }
+
+
+def control(action: str) -> str:
+    """UI playback control dispatcher for 'play_pause', 'next', or 'previous'."""
+    handlers = {
+        "play_pause": spotify_play_pause,
+        "next": spotify_next,
+        "previous": spotify_previous,
+    }
+    handler = handlers.get(action)
+    if not handler:
+        return f"Unknown action: {action}"
+    return handler()
+
+
 @registry.tool
 def spotify_now_playing() -> str:
     """Get the currently playing track on Spotify including artist and progress."""

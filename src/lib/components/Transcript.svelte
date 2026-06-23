@@ -1,70 +1,88 @@
 <script lang="ts">
-  import { afterUpdate, type Component } from 'svelte'
-  import { ArrowUp, ArrowDown, Database, Brain } from '@lucide/svelte'
-  import WeatherWidget from './WeatherWidget.svelte'
-  import { transcript, type Usage } from '../stores'
+  import { afterUpdate, type Component } from "svelte";
+  import { ArrowUp, ArrowDown, Database, Brain, Wrench } from "@lucide/svelte";
+  import WeatherWidget from "./WeatherWidget.svelte";
+  import { transcript, type Usage } from "../stores";
 
-  let el: HTMLDivElement
+  let el: HTMLDivElement;
 
   // Show only the token counts that apply (cache write/read & reasoning are provider- and
   // model-dependent, so they're often 0).
-  type UsagePart = { icon: Component; text: string; title: string }
+  type UsagePart = { icon: Component; text: string; title: string };
   function usageParts(u: Usage): UsagePart[] {
-    const n = (x: number) => x.toLocaleString()
+    const n = (x: number) => x.toLocaleString();
     const parts: UsagePart[] = [
-      { icon: ArrowUp, text: n(u.input), title: 'Input tokens' },
-      { icon: ArrowDown, text: n(u.output), title: 'Output tokens' },
-    ]
-    if (u.cache_read) parts.push({ icon: Database, text: `${n(u.cache_read)} read`, title: 'Cache read tokens' })
-    if (u.cache_write) parts.push({ icon: Database, text: `${n(u.cache_write)} write`, title: 'Cache write tokens' })
-    if (u.reasoning) parts.push({ icon: Brain, text: n(u.reasoning), title: 'Reasoning tokens' })
-    return parts
+      { icon: ArrowUp, text: n(u.input), title: "Input tokens" },
+      { icon: ArrowDown, text: n(u.output), title: "Output tokens" },
+    ];
+    if (u.cache_read)
+      parts.push({
+        icon: Database,
+        text: `${n(u.cache_read)} read`,
+        title: "Cache read tokens",
+      });
+    if (u.cache_write)
+      parts.push({
+        icon: Database,
+        text: `${n(u.cache_write)} write`,
+        title: "Cache write tokens",
+      });
+    if (u.reasoning)
+      parts.push({
+        icon: Brain,
+        text: n(u.reasoning),
+        title: "Reasoning tokens",
+      });
+    return parts;
   }
 
   function fmtArgs(args: Record<string, unknown>) {
-    const entries = Object.entries(args)
-    if (!entries.length) return ''
-    return entries.map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(', ')
+    const entries = Object.entries(args);
+    if (!entries.length) return "";
+    return entries.map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(", ");
   }
 
   // Split out <silent> blocks so spoken vs on-screen-only content reads differently.
   function parts(text: string) {
-    const out: { silent: boolean; text: string }[] = []
-    const re = /<silent>([\s\S]*?)<\/silent>/g
-    let last = 0
-    let m: RegExpExecArray | null
+    const out: { silent: boolean; text: string }[] = [];
+    const re = /<silent>([\s\S]*?)<\/silent>/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
     while ((m = re.exec(text))) {
-      if (m.index > last) out.push({ silent: false, text: text.slice(last, m.index) })
-      out.push({ silent: true, text: m[1] })
-      last = re.lastIndex
+      if (m.index > last)
+        out.push({ silent: false, text: text.slice(last, m.index) });
+      out.push({ silent: true, text: m[1] });
+      last = re.lastIndex;
     }
-    if (last < text.length) out.push({ silent: false, text: text.slice(last) })
-    return out.filter((p) => p.text.trim())
+    if (last < text.length) out.push({ silent: false, text: text.slice(last) });
+    return out.filter((p) => p.text.trim());
   }
 
   afterUpdate(() => {
-    if (el) el.scrollTop = el.scrollHeight
-  })
+    if (el) el.scrollTop = el.scrollHeight;
+  });
 </script>
 
 <div class="log" bind:this={el}>
   {#each $transcript as item}
-    {#if item.role === 'weather'}
+    {#if item.role === "weather"}
       <WeatherWidget location={item.location} days={item.days} />
-    {:else if item.role === 'tool'}
+    {:else if item.role === "tool"}
       <details class="tool">
         <summary>
           <span class="chev">▸</span>
+          <Wrench class="wrench" size={12} strokeWidth={2} />
           <span class="tname">{item.name}</span>
-          {#if fmtArgs(item.args)}<span class="targs">{fmtArgs(item.args)}</span>{/if}
+          {#if fmtArgs(item.args)}<span class="targs">{fmtArgs(item.args)}</span
+            >{/if}
         </summary>
-        <div class="tresult">{item.result || '(no output)'}</div>
+        <div class="tresult">{item.result || "(no output)"}</div>
       </details>
-    {:else if item.role === 'system'}
+    {:else if item.role === "system"}
       <div class="divider"><span>{item.text}</span></div>
     {:else}
       <div class="row {item.role}">
-        <span class="who">{item.role === 'user' ? 'You' : 'Lumi'}</span>
+        <span class="who">{item.role === "user" ? "You" : "Lumi"}</span>
         <div class="bubble">
           {#each parts(item.text) as p}
             {#if p.silent}
@@ -74,11 +92,13 @@
             {/if}
           {/each}
         </div>
-        {#if item.role === 'lumi' && item.usage}
+        {#if item.role === "lumi" && item.usage}
           <div class="usage">
             {#each usageParts(item.usage) as part}
               {@const Icon = part.icon}
-              <span class="u" title={part.title}><Icon size={11} strokeWidth={2} />{part.text}</span>
+              <span class="u" title={part.title}
+                ><Icon size={11} strokeWidth={2} />{part.text}</span
+              >
             {/each}
           </div>
         {/if}
@@ -101,8 +121,14 @@
     gap: 14px;
     padding: 4px 8px;
   }
-  .row { display: flex; flex-direction: column; gap: 4px; }
-  .row.user { align-items: flex-end; }
+  .row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .row.user {
+    align-items: flex-end;
+  }
   .who {
     font-size: 10px;
     letter-spacing: 0.2em;
@@ -152,15 +178,28 @@
     font-size: 12px;
     line-height: 1.4;
   }
-  .tool summary::-webkit-details-marker { display: none; }
+  .tool summary::-webkit-details-marker {
+    display: none;
+  }
   .chev {
     color: var(--accent);
     font-size: 10px;
     transition: transform 0.15s ease;
     flex: none;
   }
-  .tool[open] .chev { transform: rotate(90deg); }
-  .tname { color: var(--text); font-family: ui-monospace, monospace; flex: none; }
+  .tool[open] .chev {
+    transform: rotate(90deg);
+  }
+  .tool summary :global(.wrench) {
+    color: var(--accent);
+    flex: none;
+    align-self: center;
+  }
+  .tname {
+    color: var(--text);
+    font-family: ui-monospace, monospace;
+    flex: none;
+  }
   .targs {
     color: var(--text-dim);
     font-family: ui-monospace, monospace;
@@ -186,9 +225,22 @@
     opacity: 0.7;
     padding: 0 4px;
   }
-  .usage .u { display: inline-flex; align-items: center; gap: 3px; cursor: default; }
-  .usage :global(svg) { opacity: 0.85; flex: none; }
-  .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px; }
+  .usage .u {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    cursor: default;
+  }
+  .usage :global(svg) {
+    opacity: 0.85;
+    flex: none;
+  }
+  .empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+  }
   .divider {
     display: flex;
     align-items: center;

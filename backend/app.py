@@ -181,9 +181,24 @@ def spotify_now_playing():
     if not os.environ.get("SPOTIFY_CLIENT_ID"):
         return JSONResponse({"configured": False, "track": None})
     from .mcp import spotify
-    track = spotify.spotify_now_playing()
-    events.emit("now_playing", track=track)
-    return {"configured": True, "track": track}
+    state = spotify.now_playing_state()
+    events.emit("now_playing", track=state)
+    return {"configured": True, **state}
+
+
+class SpotifyControl(BaseModel):
+    action: str  # 'play_pause' | 'next' | 'previous'
+
+
+@app.post("/api/spotify/control")
+def spotify_control(body: SpotifyControl):
+    if not os.environ.get("SPOTIFY_CLIENT_ID"):
+        return JSONResponse({"ok": False, "error": "Spotify not configured"})
+    from .mcp import spotify
+    result = spotify.control(body.action)
+    # Re-read playback so the UI reflects the change immediately.
+    events.emit("now_playing", track=spotify.now_playing_state())
+    return {"ok": True, "result": result}
 
 
 # ---------------------------------------------------------------------------
