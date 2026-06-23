@@ -156,5 +156,72 @@ if os.environ.get("SPOTIFY_CLIENT_ID"):
         return _sp.spotify_transfer_playback(device_name)
 
 
+if os.environ.get("TUYA_DEVICE_ID"):
+    from . import tuya as _tuya
+
+    @mcp.tool()
+    def light_list() -> str:
+        """List the smart lights available to control, by name."""
+        return _tuya.light_list()
+
+    @mcp.tool()
+    def light_set_power(on: bool, name: str = "") -> str:
+        """Turn a smart light on or off.
+
+        Args:
+            on: True to turn the light on, False to turn it off.
+            name: Which light (by name); leave empty if there's only one.
+        """
+        return _tuya.light_set_power(on, name)
+
+    @mcp.tool()
+    def light_set_all_power(on: bool) -> str:
+        """Turn every smart light on or off at once.
+
+        Args:
+            on: True to turn all lights on, False to turn them all off.
+        """
+        return _tuya.light_set_all_power(on)
+
+    @mcp.tool()
+    def light_set_brightness(percent: int, name: str = "") -> str:
+        """Set a smart light's brightness.
+
+        Args:
+            percent: Brightness from 1 (dimmest) to 100 (brightest).
+            name: Which light (by name); leave empty if there's only one.
+        """
+        return _tuya.light_set_brightness(percent, name)
+
+    @mcp.tool()
+    def light_set_color(color: str, name: str = "") -> str:
+        """Set a smart light's color.
+
+        Args:
+            color: Color name like 'blue' or 'warm white', or hex like '#ff8800'.
+            name: Which light (by name); leave empty if there's only one.
+        """
+        return _tuya.light_set_color(color, name)
+
+    @mcp.tool()
+    def light_set_white(warmth: str = "neutral", name: str = "") -> str:
+        """Switch a smart light to white and set how warm or cool it is.
+
+        Args:
+            warmth: One of 'warm', 'soft', 'neutral', 'cool', or 'daylight'.
+            name: Which light (by name); leave empty if there's only one.
+        """
+        return _tuya.light_set_white(warmth, name)
+
+    @mcp.tool()
+    def light_status(name: str = "") -> str:
+        """Get the current state of a smart light (on/off, brightness, mode).
+
+        Args:
+            name: Which light (by name); leave empty if there's only one.
+        """
+        return _tuya.light_status(name)
+
+
 if __name__ == "__main__":
     mcp.run()

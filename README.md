@@ -63,9 +63,35 @@ GEMINI_API_KEY=...             # or GROQ_API_KEY=...
 # optional Spotify:
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
+# optional Tuya / Smart Life smart bulb (cloud control):
+TUYA_DEVICE_ID=...
+TUYA_API_REGION=...           # eu, us, cn, or in
+TUYA_API_KEY=...
+TUYA_API_SECRET=...
 ```
 
 If using Spotify, authenticate once: `python -m backend.mcp.spotify_auth`.
+
+### Tuya / Smart Life smart bulb (optional)
+
+Lumi can control a Tuya-based wifi bulb (e.g. paired in the **Smart Life** app) through the
+**Tuya cloud** — the same path the Smart Life app uses, so it works even if your router has
+WiFi AP/client isolation that blocks direct LAN access to the bulb. You need the bulb's
+device ID plus your Tuya cloud API credentials — get them once like this:
+
+1. Create a free account on the [Tuya IoT Platform](https://iot.tuya.com/), make a Cloud
+   project, and link your Smart Life app account so the bulb appears.
+2. `python -m tinytuya wizard` — writes `devices.json` (the **device ID**) and `tinytuya.json`
+   (your cloud **API key**, **secret**, and **region**).
+3. Put `TUYA_DEVICE_ID`, `TUYA_API_REGION`, `TUYA_API_KEY`, `TUYA_API_SECRET` into `.env`.
+
+The bulb just needs to be online in the Smart Life app. Once configured, ask Lumi things
+like "turn the light blue", "dim the light to 20%", or "warm white".
+
+Lumi discovers **all** lights on your account automatically and can target them by name —
+rename your bulbs in the Smart Life app (e.g. "desk lamp", "bedroom"), then say "turn the
+desk lamp purple" or ask "what lights can you control?". With a single light you can leave
+the name out.
 
 ## Run
 

@@ -6,3 +6,7 @@ __pycache__
 .spotify_cache
 node_modules
 dist
+
+tinytuya.json
+tuya-raw.json
+devices.json
