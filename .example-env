@@ -1,0 +1,22 @@
+GEMINI_API_KEY=...
+GROQ_API_KEY=gsk_...
+
+LLM_PROVIDER=groq
+# LLM_PROVIDER=gemini
+GEMINI_MODEL=gemini-3.1-flash-lite
+
+# GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+GROQ_MODEL=openai/gpt-oss-120b
+# GROQ_MODEL=llama-3.3-70b-versatile
+# GROQ_MODEL=llama-3.1-8b-instant
+# GROQ_MODEL=qwen/qwen3-32b
+
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
+
+# optional Tuya / Smart Life smart bulb (cloud control):
+TUYA_DEVICE_ID='...'
+TUYA_API_REGION='eu'           # eu, us, cn, or in
+TUYA_API_KEY='...'
+TUYA_API_SECRET='...'
