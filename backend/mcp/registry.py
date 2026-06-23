@@ -92,6 +92,25 @@ def reset_active() -> None:
     active_version += 1
 
 
+def active_tool_names() -> list[str]:
+    return sorted(_active)
+
+
+def modules_view() -> list[dict]:
+    """Structured catalog for the UI: each module with its tools (descriptions included),
+    grouped and sorted by module name. Pair with active_tool_names() for loaded state."""
+    desc_by = {s["function"]["name"]: s["function"].get("description", "") for s in TOOL_SCHEMAS}
+    return [
+        {
+            "name": mod.name,
+            "description": mod.description,
+            "default": mod.name in DEFAULT_MODULES,
+            "tools": [{"name": t, "description": desc_by.get(t, "")} for t in mod.tool_names],
+        }
+        for mod in sorted(MODULES.values(), key=lambda m: m.name)
+    ]
+
+
 def active_schemas() -> list[dict]:
     return [s for s in TOOL_SCHEMAS if s["function"]["name"] in _active]
 

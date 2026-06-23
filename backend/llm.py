@@ -48,6 +48,7 @@ def clear_history():
     global _gemini_chat, _groq_pending_clear
     from .mcp import registry as reg
     reg.reset_active()  # forget any tools loaded via find_tools; back to the default set
+    events.emit("tools_active", names=reg.active_tool_names())
     if PROVIDER == "groq":
         # Defer the actual clear — calling this mid-tool-loop would corrupt the
         # in-progress conversation turn. _ask_groq clears at the start of the next call.
@@ -62,16 +63,20 @@ def clear_history():
 
 
 def _execute_tool(name: str, args: dict) -> str:
-    from .mcp.registry import TOOL_FNS
-    fn = TOOL_FNS.get(name)
+    from .mcp import registry as reg
+    fn = reg.TOOL_FNS.get(name)
     if not fn:
         events.emit("tool_call", name=name, args=args, result="Unknown tool")
         return f"Unknown tool: {name}"
+    before = reg.active_version
     try:
         result = str(fn(**args))
     except Exception as e:
         result = f"Tool error: {e}"
     events.emit("tool_call", name=name, args=args, result=result)
+    # find_tools (or reset_chat) may have changed which tools are loaded — tell the UI.
+    if reg.active_version != before:
+        events.emit("tools_active", names=reg.active_tool_names())
     return result
 
 

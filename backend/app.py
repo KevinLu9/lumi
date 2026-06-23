@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from . import assistant, events, transcriber, tts
-from .mcp.registry import TOOL_SCHEMAS
+from .mcp import registry as tool_registry
 
 app = FastAPI(title="Lumi")
 
@@ -92,6 +92,7 @@ audio_hub = AudioHub()
 async def _startup() -> None:
     loop = asyncio.get_running_loop()
     events.set_loop(loop)
+    events.current_state["active_tools"] = tool_registry.active_tool_names()
     audio_hub.bind_loop(loop)
     tts.set_audio_sink(send_audio=audio_hub.send_audio, send_control=audio_hub.send_control)
     # Load models + start capture loop off the event loop (blocking model loads).
@@ -138,10 +139,11 @@ def get_state():
 
 @app.get("/api/tools")
 def get_tools():
-    return [
-        {"name": s["function"]["name"], "description": s["function"]["description"]}
-        for s in TOOL_SCHEMAS
-    ]
+    # Grouped by tool module, plus which tools are currently loaded into the LLM context.
+    return {
+        "modules": tool_registry.modules_view(),
+        "active": tool_registry.active_tool_names(),
+    }
 
 
 @app.post("/api/message")

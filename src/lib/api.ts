@@ -12,9 +12,11 @@ export const reset = () => post('/api/reset')
 export const activate = () => post('/api/activate')
 export const deactivate = () => post('/api/deactivate')
 
+import type { ToolModule } from './stores'
+
 export async function fetchTools() {
   const r = await fetch('/api/tools')
-  return r.json()
+  return r.json() as Promise<{ modules: ToolModule[]; active: string[] }>
 }
 
 export async function fetchNowPlaying() {

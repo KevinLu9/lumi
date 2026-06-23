@@ -18,8 +18,11 @@ current_state: dict[str, Any] = {
     "status": "idle",
     "active": False,
     "tts_playing": False,
-    "transcript": [],   # list of {"role": "user"|"lumi", "text": str}
+    # list of {"role": "user"|"lumi", "text": str} and
+    # {"role": "tool", "name": str, "args": dict, "result": str}, interleaved in order.
+    "transcript": [],
     "now_playing": None,
+    "active_tools": [],   # tool names currently loaded into the LLM context
 }
 
 # Cap transcript history kept in the snapshot so it doesn't grow unbounded.
@@ -56,8 +59,18 @@ def _update_state(event_type: str, data: dict) -> None:
     elif event_type == "lumi_message":
         current_state["transcript"].append({"role": "lumi", "text": data.get("text", "")})
         del current_state["transcript"][:-_MAX_TRANSCRIPT]
+    elif event_type == "tool_call":
+        current_state["transcript"].append({
+            "role": "tool",
+            "name": data.get("name", ""),
+            "args": data.get("args") or {},
+            "result": data.get("result", ""),
+        })
+        del current_state["transcript"][:-_MAX_TRANSCRIPT]
     elif event_type == "chat_reset":
         current_state["transcript"] = []
+    elif event_type == "tools_active":
+        current_state["active_tools"] = data.get("names", current_state["active_tools"])
     elif event_type == "now_playing":
         current_state["now_playing"] = data.get("track")
 

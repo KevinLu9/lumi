@@ -4,6 +4,12 @@
 
   let el: HTMLDivElement
 
+  function fmtArgs(args: Record<string, unknown>) {
+    const entries = Object.entries(args)
+    if (!entries.length) return ''
+    return entries.map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(', ')
+  }
+
   // Split out <silent> blocks so spoken vs on-screen-only content reads differently.
   function parts(text: string) {
     const out: { silent: boolean; text: string }[] = []
@@ -26,7 +32,16 @@
 
 <div class="log" bind:this={el}>
   {#each $transcript as item}
-    {#if item.role === 'system'}
+    {#if item.role === 'tool'}
+      <details class="tool">
+        <summary>
+          <span class="chev">▸</span>
+          <span class="tname">{item.name}</span>
+          {#if fmtArgs(item.args)}<span class="targs">{fmtArgs(item.args)}</span>{/if}
+        </summary>
+        <div class="tresult">{item.result || '(no output)'}</div>
+      </details>
+    {:else if item.role === 'system'}
       <div class="divider"><span>{item.text}</span></div>
     {:else}
       <div class="row {item.role}">
@@ -92,6 +107,47 @@
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--text-dim);
+  }
+  .tool {
+    align-self: flex-start;
+    max-width: 85%;
+    border-left: 2px solid var(--accent);
+    background: rgba(245, 158, 11, 0.05);
+    border-radius: 0 8px 8px 0;
+  }
+  .tool summary {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 6px 12px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .tool summary::-webkit-details-marker { display: none; }
+  .chev {
+    color: var(--accent);
+    font-size: 10px;
+    transition: transform 0.15s ease;
+    flex: none;
+  }
+  .tool[open] .chev { transform: rotate(90deg); }
+  .tname { color: var(--text); font-family: ui-monospace, monospace; flex: none; }
+  .targs {
+    color: var(--text-dim);
+    font-family: ui-monospace, monospace;
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tresult {
+    padding: 0 12px 8px 26px;
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px; }
   .divider {

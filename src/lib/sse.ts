@@ -1,5 +1,5 @@
 import {
-  status, active, ttsPlaying, transcript, toolCalls, nowPlaying, connected,
+  status, active, ttsPlaying, transcript, activeTools, nowPlaying, connected,
   type Status,
 } from './stores'
 
@@ -12,6 +12,7 @@ function handle(ev: Event) {
       active.set(!!ev.active)
       ttsPlaying.set(!!ev.tts_playing)
       transcript.set(ev.transcript ?? [])
+      activeTools.set(new Set(ev.active_tools ?? []))
       nowPlaying.set(ev.now_playing ?? null)
       break
     case 'status':
@@ -28,12 +29,15 @@ function handle(ev: Event) {
       transcript.update((t) => [...t, { role: 'lumi', text: ev.text }])
       break
     case 'tool_call':
-      toolCalls.update((t) =>
-        [{ name: ev.name, args: ev.args ?? {}, result: ev.result ?? '', ts: Date.now() }, ...t].slice(0, 50),
+      transcript.update((t) =>
+        [...t, { role: 'tool', name: ev.name, args: ev.args ?? {}, result: ev.result ?? '' }],
       )
       break
     case 'chat_reset':
       transcript.set([{ role: 'system', text: 'Chat reset' }])
+      break
+    case 'tools_active':
+      activeTools.set(new Set(ev.names ?? []))
       break
     case 'now_playing':
       nowPlaying.set(ev.track ?? null)
