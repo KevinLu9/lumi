@@ -25,6 +25,7 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
+    "@lucide/svelte": "^1.21.0",
     "@tsparticles/engine": "^4.2.1",
     "@tsparticles/slim": "^4.2.1"
   }

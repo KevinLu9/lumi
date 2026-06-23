@@ -3,8 +3,15 @@ import { writable } from 'svelte/store'
 export type Status =
   | 'idle' | 'listening' | 'recording' | 'transcribing' | 'thinking' | 'speaking'
 
+export type Usage = {
+  input: number
+  output: number
+  cache_read: number
+  cache_write: number
+  reasoning: number
+}
 export type TranscriptItem =
-  | { role: 'user' | 'lumi' | 'system'; text: string }
+  | { role: 'user' | 'lumi' | 'system'; text: string; usage?: Usage }
   | { role: 'tool'; name: string; args: Record<string, unknown>; result: string }
 export type Tool = { name: string; description: string }
 export type ToolModule = { name: string; description: string; default: boolean; tools: Tool[] }

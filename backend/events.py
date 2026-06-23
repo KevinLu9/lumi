@@ -57,7 +57,10 @@ def _update_state(event_type: str, data: dict) -> None:
         current_state["transcript"].append({"role": "user", "text": data.get("text", "")})
         del current_state["transcript"][:-_MAX_TRANSCRIPT]
     elif event_type == "lumi_message":
-        current_state["transcript"].append({"role": "lumi", "text": data.get("text", "")})
+        item = {"role": "lumi", "text": data.get("text", "")}
+        if data.get("usage"):
+            item["usage"] = data["usage"]
+        current_state["transcript"].append(item)
         del current_state["transcript"][:-_MAX_TRANSCRIPT]
     elif event_type == "tool_call":
         current_state["transcript"].append({

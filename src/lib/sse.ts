@@ -26,7 +26,7 @@ function handle(ev: Event) {
       transcript.update((t) => [...t, { role: 'user', text: ev.text }])
       break
     case 'lumi_message':
-      transcript.update((t) => [...t, { role: 'lumi', text: ev.text }])
+      transcript.update((t) => [...t, { role: 'lumi', text: ev.text, usage: ev.usage }])
       break
     case 'tool_call':
       transcript.update((t) =>

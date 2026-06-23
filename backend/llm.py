@@ -62,6 +62,32 @@ def clear_history():
         _gemini_chat = model.start_chat(history=[])
 
 
+# Token accounting. We sum usage across every API call in a turn (each tool round is a
+# separate request that re-sends the growing context), so these are per-turn totals.
+def _new_usage() -> dict:
+    return {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "reasoning": 0}
+
+
+def _add_groq_usage(acc: dict, usage) -> None:
+    if not usage:
+        return
+    acc["input"] += getattr(usage, "prompt_tokens", 0) or 0
+    acc["output"] += getattr(usage, "completion_tokens", 0) or 0
+    if ptd := getattr(usage, "prompt_tokens_details", None):
+        acc["cache_read"] += getattr(ptd, "cached_tokens", 0) or 0
+    if ctd := getattr(usage, "completion_tokens_details", None):
+        acc["reasoning"] += getattr(ctd, "reasoning_tokens", 0) or 0
+
+
+def _add_gemini_usage(acc: dict, md) -> None:
+    if not md:
+        return
+    acc["input"] += getattr(md, "prompt_token_count", 0) or 0
+    acc["output"] += getattr(md, "candidates_token_count", 0) or 0
+    acc["cache_read"] += getattr(md, "cached_content_token_count", 0) or 0
+    acc["reasoning"] += getattr(md, "thoughts_token_count", 0) or 0
+
+
 def _execute_tool(name: str, args: dict) -> str:
     from .mcp import registry as reg
     fn = reg.TOOL_FNS.get(name)
@@ -101,10 +127,12 @@ def load():
         _gemini_chat = model.start_chat(history=[])
 
 
-def _ask_gemini(text: str) -> str:
+def _ask_gemini(text: str) -> tuple[str, dict]:
     global _gemini_chat
     from .mcp import registry as reg
+    usage = _new_usage()
     response = _gemini_chat.send_message(text)
+    _add_gemini_usage(usage, getattr(response, "usage_metadata", None))
 
     for _ in range(5):
         try:
@@ -139,19 +167,22 @@ def _ask_gemini(text: str) -> str:
             _gemini_chat = model.start_chat(history=_gemini_chat.history)
 
         response = _gemini_chat.send_message(fn_responses)
+        _add_gemini_usage(usage, getattr(response, "usage_metadata", None))
 
     try:
-        return "".join(
+        text_out = "".join(
             p.text for p in response.candidates[0].content.parts
             if hasattr(p, "text") and p.text
         )
     except (IndexError, AttributeError):
-        return ""
+        text_out = ""
+    return text_out, usage
 
 
-def _ask_groq(text: str) -> str:
+def _ask_groq(text: str) -> tuple[str, dict]:
     global _groq_pending_clear
     from .mcp import registry as reg
+    usage = _new_usage()
     if _groq_pending_clear:
         _groq_history.clear()
         _groq_pending_clear = False
@@ -163,11 +194,12 @@ def _ask_groq(text: str) -> str:
             messages=[{"role": "system", "content": _system_prompt()}] + _groq_history,
             tools=reg.active_schemas(),
         )
+        _add_groq_usage(usage, getattr(response, "usage", None))
         message = response.choices[0].message
 
         if not message.tool_calls:
             _groq_history.append({"role": "assistant", "content": message.content})
-            return message.content or ""
+            return message.content or "", usage
 
         _groq_history.append({
             "role": "assistant",
@@ -190,7 +222,7 @@ def _ask_groq(text: str) -> str:
                 "content": result,
             })
 
-    return ""
+    return "", usage
 
 
 def _strip_markdown(text: str) -> str:
@@ -209,12 +241,12 @@ def _strip_markdown(text: str) -> str:
 def ask(text: str, on_sentence: Callable[[str], None]):
     _cancel.clear()
 
-    raw = _ask_groq(text) if PROVIDER == "groq" else _ask_gemini(text)
+    raw, usage = _ask_groq(text) if PROVIDER == "groq" else _ask_gemini(text)
 
     if _cancel.is_set():
         return
 
-    events.emit("lumi_message", text=raw)
+    events.emit("lumi_message", text=raw, usage=usage)
     sys.stdout.write(f"\r\033[K{LUMI_COLOR}Lumi:{RESET} {raw}\n")
     sys.stdout.flush()
 

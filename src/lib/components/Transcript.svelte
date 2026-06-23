@@ -1,8 +1,24 @@
 <script lang="ts">
-  import { afterUpdate } from 'svelte'
-  import { transcript } from '../stores'
+  import { afterUpdate, type Component } from 'svelte'
+  import { ArrowUp, ArrowDown, Database, Brain } from '@lucide/svelte'
+  import { transcript, type Usage } from '../stores'
 
   let el: HTMLDivElement
+
+  // Show only the token counts that apply (cache write/read & reasoning are provider- and
+  // model-dependent, so they're often 0).
+  type UsagePart = { icon: Component; text: string; title: string }
+  function usageParts(u: Usage): UsagePart[] {
+    const n = (x: number) => x.toLocaleString()
+    const parts: UsagePart[] = [
+      { icon: ArrowUp, text: n(u.input), title: 'Input tokens' },
+      { icon: ArrowDown, text: n(u.output), title: 'Output tokens' },
+    ]
+    if (u.cache_read) parts.push({ icon: Database, text: `${n(u.cache_read)} read`, title: 'Cache read tokens' })
+    if (u.cache_write) parts.push({ icon: Database, text: `${n(u.cache_write)} write`, title: 'Cache write tokens' })
+    if (u.reasoning) parts.push({ icon: Brain, text: n(u.reasoning), title: 'Reasoning tokens' })
+    return parts
+  }
 
   function fmtArgs(args: Record<string, unknown>) {
     const entries = Object.entries(args)
@@ -55,6 +71,14 @@
             {/if}
           {/each}
         </div>
+        {#if item.role === 'lumi' && item.usage}
+          <div class="usage">
+            {#each usageParts(item.usage) as part}
+              {@const Icon = part.icon}
+              <span class="u" title={part.title}><Icon size={11} strokeWidth={2} />{part.text}</span>
+            {/each}
+          </div>
+        {/if}
       </div>
     {/if}
   {/each}
@@ -149,6 +173,18 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
+  .usage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 10px;
+    font-family: ui-monospace, monospace;
+    color: var(--text-dim);
+    opacity: 0.7;
+    padding: 0 4px;
+  }
+  .usage .u { display: inline-flex; align-items: center; gap: 3px; cursor: default; }
+  .usage :global(svg) { opacity: 0.85; flex: none; }
   .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px; }
   .divider {
     display: flex;
