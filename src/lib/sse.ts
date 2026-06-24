@@ -56,6 +56,16 @@ function handle(ev: Event) {
         { role: "weather", location: ev.location ?? "", days: ev.days ?? [] },
       ]);
       break;
+    case "error":
+      transcript.update((t) => [
+        ...t,
+        {
+          role: "error",
+          text: ev.message ?? "Something went wrong.",
+          retry: ev.retry ?? "",
+        },
+      ]);
+      break;
     case "chat_reset":
       transcript.set([{ role: "system", text: "Chat reset" }]);
       break;

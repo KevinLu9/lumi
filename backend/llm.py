@@ -23,10 +23,12 @@ SYSTEM_PROMPT = open(os.path.join(os.path.dirname(__file__), "lumi.md")).read()
 
 
 def _system_prompt() -> str:
-    """Base prompt plus the catalog of tool modules the model can load via find_tools."""
+    """Base prompt plus the loadable-tool catalog and anything Lumi remembers about
+    the user (so saved memories are used proactively, not just on explicit recall)."""
     from .mcp import registry as reg
-    catalog = reg.tool_catalog()
-    return f"{SYSTEM_PROMPT}\n\n{catalog}" if catalog else SYSTEM_PROMPT
+    from .mcp.memory import memory_block
+    sections = [SYSTEM_PROMPT, reg.tool_catalog(), memory_block()]
+    return "\n\n".join(s for s in sections if s)
 
 
 _cancel = threading.Event()

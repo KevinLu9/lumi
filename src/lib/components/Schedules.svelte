@@ -334,16 +334,17 @@
     gap: 8px;
     margin-top: 10px;
     /* Fill the leftover height of the panel and scroll internally, so the left
-       aside never has to scroll. Falls back to a sensible cap if the panel
-       isn't a flex parent (e.g. the stacked mobile layout). */
+       aside never has to scroll: same approach as the Tools list on the right. */
     flex: 1;
     min-height: 0;
-    max-height: 320px;
     overflow-y: auto;
     /* room so cards don't sit flush against the scrollbar */
     padding-right: 2px;
   }
   .job {
+    /* Keep each card at its natural height; without this, flex would shrink
+       expanded cards to fit and clip their text instead of letting .list scroll. */
+    flex: none;
     border: 1px solid var(--panel-border);
     border-radius: 10px;
     background: rgba(245, 158, 11, 0.05);
@@ -446,5 +447,14 @@
   .empty {
     color: var(--text-dim);
     font-size: 12px;
+  }
+
+  /* Stacked mobile layout: the column scrolls as a whole, so let the list grow
+     to its content instead of capping it to the (zero) leftover panel height. */
+  @media (max-width: 1100px) {
+    .list {
+      flex: none;
+      overflow-y: visible;
+    }
   }
 </style>

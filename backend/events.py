@@ -78,6 +78,13 @@ def _update_state(event_type: str, data: dict) -> None:
             "days": data.get("days") or [],
         })
         del current_state["transcript"][:-_MAX_TRANSCRIPT]
+    elif event_type == "error":
+        current_state["transcript"].append({
+            "role": "error",
+            "text": data.get("message", "Something went wrong."),
+            "retry": data.get("retry", ""),
+        })
+        del current_state["transcript"][:-_MAX_TRANSCRIPT]
     elif event_type == "chat_reset":
         current_state["transcript"] = []
     elif event_type == "tools_active":

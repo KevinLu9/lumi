@@ -32,7 +32,8 @@ export type TranscriptItem =
       args: Record<string, unknown>;
       result: string;
     }
-  | { role: "weather"; location: string; days: ForecastDay[] };
+  | { role: "weather"; location: string; days: ForecastDay[] }
+  | { role: "error"; text: string; retry: string };
 export type Tool = { name: string; description: string };
 export type ToolModule = {
   name: string;

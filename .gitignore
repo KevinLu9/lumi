@@ -11,3 +11,8 @@ tinytuya.json
 tuya-raw.json
 devices.json
 backend/schedules.json
+backend/lumi_memory.json
+backend/lumi_memory.db
+backend/lumi_memory.db-wal
+backend/lumi_memory.db-shm
+.google_token.json

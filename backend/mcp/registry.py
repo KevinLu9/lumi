@@ -30,11 +30,12 @@ TOOL_SCHEMAS: list[dict] = []
 TOOL_CALLABLES: list = []
 
 # Modules in this package that are not tool providers and must never be auto-imported.
-_SKIP = {"registry", "server", "spotify_auth"}
+_SKIP = {"registry", "server", "spotify_auth", "google_auth"}
 
 # Modules whose tools are active from the start of every conversation. Everything else is
 # loaded on demand via find_tools. (Add "browser"/"keyboard" here to make them default.)
-DEFAULT_MODULES = {"tools"}
+# memory is default so recall + memory_save are always available without find_tools.
+DEFAULT_MODULES = {"tools", "memory"}
 
 
 @dataclasses.dataclass

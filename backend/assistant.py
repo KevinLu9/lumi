@@ -7,6 +7,7 @@ functions; the CLI (cli.py) drives it through local audio. No stdin/stdout UI he
 
 import re
 import threading
+import traceback
 
 from . import tts
 from . import llm
@@ -105,18 +106,26 @@ def _run_lumi(text: str):
 
     events.emit("user_transcript", text=text)
     _emit_status("thinking")
-    llm.ask(text, on_sentence=_on_sentence)
-    # LLM done streaming; pin the speaking status while TTS plays out.
-    transcriber.pin_status("🔊 Lumi is speaking... say 'hold on' to interrupt")
-    _emit_status("speaking")
-    _emit_active_state()
-    tts.wait_done()
-    transcriber.unpin_status()
-    _reset_active_timer()
-    with _active_lock:
-        still_active = _active
-    _emit_status("listening" if still_active else "idle")
-    _emit_active_state()
+    try:
+        llm.ask(text, on_sentence=_on_sentence)
+        # LLM done streaming; pin the speaking status while TTS plays out.
+        transcriber.pin_status("🔊 Lumi is speaking... say 'hold on' to interrupt")
+        _emit_status("speaking")
+        _emit_active_state()
+        tts.wait_done()
+    except Exception as e:
+        # Surface the failure in the UI (an error card with a retry button) instead
+        # of letting the worker thread die silently. `retry` carries the original
+        # prompt so the frontend can re-send it.
+        traceback.print_exc()
+        events.emit("error", message=str(e) or e.__class__.__name__, retry=text)
+    finally:
+        transcriber.unpin_status()
+        _reset_active_timer()
+        with _active_lock:
+            still_active = _active
+        _emit_status("listening" if still_active else "idle")
+        _emit_active_state()
 
 
 def _send_to_lumi(text: str):
@@ -238,9 +247,14 @@ def deactivate():
     _deactivate()
 
 
-def _on_timer(label: str):
-    events.emit("timer", label=label)
-    _on_sentence(f"Timer done: {label}")
+def _on_timer(label: str, action: str = ""):
+    # A timer with an action runs as a full Lumi turn (like a scheduled job) so Lumi can
+    # load tools and carry it out, then speak. Without one it just announces.
+    if action:
+        send_text(action)
+    else:
+        events.emit("timer", label=label)
+        _on_sentence(f"Timer done: {label}")
 
 
 def start_voice_loop(source: str = "web"):

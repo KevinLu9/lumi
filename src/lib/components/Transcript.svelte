@@ -1,10 +1,25 @@
 <script lang="ts">
   import { afterUpdate, type Component } from "svelte";
-  import { ArrowUp, ArrowDown, Database, Brain, Wrench } from "@lucide/svelte";
+  import {
+    ArrowUp,
+    ArrowDown,
+    Database,
+    Brain,
+    Wrench,
+    AlertTriangle,
+    RotateCw,
+  } from "@lucide/svelte";
   import WeatherWidget from "./WeatherWidget.svelte";
   import { transcript, type Usage } from "../stores";
+  import { sendMessage } from "../api";
 
   let el: HTMLDivElement;
+
+  // Re-send the prompt that failed. The card stays in history as a record; a fresh
+  // user/Lumi turn appends below it.
+  function retry(text: string) {
+    if (text.trim()) sendMessage(text);
+  }
 
   // Show only the token counts that apply (cache write/read & reasoning are provider- and
   // model-dependent, so they're often 0).
@@ -80,6 +95,20 @@
       </details>
     {:else if item.role === "system"}
       <div class="divider"><span>{item.text}</span></div>
+    {:else if item.role === "error"}
+      <div class="errcard">
+        <div class="errhead">
+          <AlertTriangle size={14} strokeWidth={2.2} />
+          <span>Something went wrong</span>
+        </div>
+        <div class="errmsg">{item.text}</div>
+        {#if item.retry}
+          <button class="retry" on:click={() => retry(item.retry)}>
+            <RotateCw size={13} strokeWidth={2.2} />
+            Retry
+          </button>
+        {/if}
+      </div>
     {:else}
       <div class="row {item.role}">
         <span class="who">{item.role === "user" ? "You" : "Lumi"}</span>
@@ -240,6 +269,52 @@
     font-size: 13px;
     text-align: center;
     padding: 20px;
+  }
+  .errcard {
+    align-self: flex-start;
+    max-width: 85%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    background: rgba(248, 113, 113, 0.1);
+  }
+  .errhead {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #f87171;
+  }
+  .errmsg {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .retry {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #f87171;
+    background: transparent;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .retry:hover {
+    background: rgba(248, 113, 113, 0.16);
+    border-color: #f87171;
   }
   .divider {
     display: flex;

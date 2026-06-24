@@ -5,7 +5,7 @@ A futuristic voice assistant with a Svelte web UI and a FastAPI backend.
 - **Speech-to-text:** faster-whisper (`tiny.en`) + Silero VAD
 - **Text-to-speech:** Kokoro (ONNX) — Lumi's voice
 - **LLM:** Gemini or Groq, with tool-calling (time, weather, calculator, timers,
-  browser control, Spotify)
+  long-term memory, web search, Google Calendar/Gmail, browser control, Spotify)
 - **UI:** a reactive orb flanked by HUD panels (system/controls + tool activity /
   now-playing)
 
@@ -68,9 +68,58 @@ TUYA_DEVICE_ID=...
 TUYA_API_REGION=...           # eu, us, cn, or in
 TUYA_API_KEY=...
 TUYA_API_SECRET=...
+# optional web search (Tavily — free tier, no card):
+TAVILY_API_KEY=...
+# optional Google Calendar + Gmail (read-only):
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
 
 If using Spotify, authenticate once: `python -m backend.mcp.spotify_auth`.
+
+### Memory (built in, no setup)
+
+Lumi remembers personal facts across sessions, in two tiers (both persisted to
+`backend/lumi_memory.json`, gitignored; no API key needed):
+
+- **Permanent** — a small core set (name, where you live, standing preferences)
+  that is injected into Lumi's prompt every turn, so it always knows them.
+- **Long-term** — the larger store for everything else. It isn't kept in the
+  prompt; Lumi searches it on demand when a question calls for it. This keeps the
+  prompt small while still letting Lumi recall details you mentioned long ago.
+
+Say "remember that I'm vegetarian" (Lumi decides the tier, defaulting to
+long-term and reserving permanent for core identity facts), ask "what do you
+remember about me?", or say "forget that".
+
+Long-term recall is **semantic** when a `GEMINI_API_KEY` is set: each long-term
+fact is embedded (Gemini `gemini-embedding-001`) into a local sqlite-vec index
+(`backend/lumi_memory.db`), so "what does the user eat?" finds a saved "I'm
+vegetarian" even with no shared words. The JSON file stays the source of truth and
+the index rebuilds from it automatically, so deleting the `.db` is safe. Without a
+Gemini key (or if the vector store can't load), recall falls back to keyword
+matching — everything still works, just less fuzzy.
+
+### Web search (optional, Tavily)
+
+Lets Lumi answer general-knowledge and current-events questions. Get a free key at
+[tavily.com](https://app.tavily.com) (free tier: 1,000 searches/month, no credit
+card) and set `TAVILY_API_KEY` in `.env`. Then ask things like "search the web for
+…" or "who won the game last night?".
+
+### Google Calendar + Gmail (optional)
+
+Lumi can read your agenda, create events, and read/search your inbox (read-only).
+Both share one Google login.
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/), create a
+   project, enable the **Google Calendar API** and **Gmail API**, and create an
+   OAuth client of type **Desktop app**.
+2. Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
+3. Authenticate once: `python -m backend.mcp.google_auth` (opens a browser).
+
+Then ask "what's on my calendar today?", "schedule lunch at noon tomorrow", or
+"do I have any new email?".
 
 ### Tuya / Smart Life smart bulb (optional)
 

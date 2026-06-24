@@ -91,18 +91,28 @@ def calculate(expression: str) -> str:
 
 
 @registry.tool
-def set_timer(seconds: int, label: str = "Timer") -> str:
-    """Set a countdown timer that will announce when it finishes.
+def set_timer(seconds: int, label: str = "Timer", action: str = "") -> str:
+    """Set a one-shot countdown timer. When it finishes Lumi either announces the timer
+    or, if `action` is given, carries out that instruction.
+
+    Use `action` for "do X in N minutes" style requests (e.g. "turn off my lights in a
+    minute"). Phrase it as a fresh instruction to yourself that you'll act on when the
+    timer fires — at that point you can load any tools you need (e.g. the light tools)
+    and perform the action. Leave `action` empty for a plain countdown.
 
     Args:
         seconds: How many seconds to wait before the timer fires.
         label: A short name for the timer, e.g. 'pasta' or 'meeting'.
+        action: Optional instruction for Lumi to perform when the timer fires, e.g.
+            'turn off the living room lights'. Empty means just announce the timer.
     """
     def _fire():
         if _timer_callback:
-            _timer_callback(label)
+            _timer_callback(label, action)
 
     threading.Timer(seconds, _fire).start()
+    if action:
+        return f"Okay — in {seconds} seconds I'll: {action} (label: {label})."
     return f"Timer set for {seconds} seconds: {label}"
 
 

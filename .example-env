@@ -20,3 +20,11 @@ TUYA_DEVICE_ID='...'
 TUYA_API_REGION='eu'           # eu, us, cn, or in
 TUYA_API_KEY='...'
 TUYA_API_SECRET='...'
+
+# optional web search (Tavily — free tier 1,000 searches/month, no card):
+TAVILY_API_KEY=...
+
+# optional Google Calendar + Gmail (read-only). After setting these, run once:
+#   python -m backend.mcp.google_auth
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
