@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from . import assistant, events, scheduler, transcriber, tts
+from . import assistant, db, events, llm, scheduler, transcriber, tts, usage
 from .mcp import registry as tool_registry
 
 app = FastAPI(title="Lumi")
@@ -90,6 +90,8 @@ audio_hub = AudioHub()
 # ---------------------------------------------------------------------------
 @app.on_event("startup")
 async def _startup() -> None:
+    # Open the shared SQLite connection first so WAL is set before _memvec opens the file.
+    db.connect()
     loop = asyncio.get_running_loop()
     events.set_loop(loop)
     events.current_state["active_tools"] = tool_registry.active_tool_names()
@@ -99,6 +101,10 @@ async def _startup() -> None:
     await asyncio.to_thread(assistant.start_voice_loop, "web")
     # The scheduler loaded persisted jobs during startup — seed the snapshot with them.
     events.current_state["schedules"] = scheduler.view()
+    # Seed the active model (after start_voice_loop applied any persisted choice) and
+    # today's persisted usage so freshly-connected clients hydrate correctly.
+    events.current_state["model"] = llm.current_model()
+    events.current_state["usage_today"] = usage.today(llm.current_model())
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +152,26 @@ def get_tools():
         "modules": tool_registry.modules_view(),
         "active": tool_registry.active_tool_names(),
     }
+
+
+@app.get("/api/model")
+def get_model():
+    return {"current": llm.current_model(), "models": llm.MODELS}
+
+
+class ModelSelect(BaseModel):
+    provider: str
+    model: str
+
+
+@app.post("/api/model")
+def post_model(body: ModelSelect):
+    # Interrupt any in-flight turn so switching can't corrupt the rebuilt chat.
+    assistant.interrupt()
+    result = llm.set_model(body.provider, body.model)
+    if not result.get("ok"):
+        return JSONResponse({"ok": False, "error": result.get("error", "Switch failed")}, status_code=400)
+    return result
 
 
 @app.post("/api/message")

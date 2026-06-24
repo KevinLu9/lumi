@@ -7,10 +7,21 @@ import {
   nowPlaying,
   schedules,
   connected,
+  currentModel,
+  usageToday,
   type Status,
+  type Usage,
 } from "./stores";
 
 type Event = Record<string, any> & { type: string };
+
+const zeroUsage = (): Usage => ({
+  input: 0,
+  output: 0,
+  cache_read: 0,
+  cache_write: 0,
+  reasoning: 0,
+});
 
 function handle(ev: Event) {
   switch (ev.type) {
@@ -22,6 +33,8 @@ function handle(ev: Event) {
       activeTools.set(new Set(ev.active_tools ?? []));
       nowPlaying.set(ev.now_playing ?? null);
       schedules.set(ev.schedules ?? []);
+      currentModel.set(ev.model ?? null);
+      usageToday.set(ev.usage_today ?? zeroUsage());
       break;
     case "status":
       status.set(ev.status as Status);
@@ -38,6 +51,15 @@ function handle(ev: Event) {
         ...t,
         { role: "lumi", text: ev.text, usage: ev.usage },
       ]);
+      // Optimistic local bump; the next snapshot reconciles against the server's ledger.
+      if (ev.usage)
+        usageToday.update((u) => ({
+          input: u.input + (ev.usage.input ?? 0),
+          output: u.output + (ev.usage.output ?? 0),
+          cache_read: u.cache_read + (ev.usage.cache_read ?? 0),
+          cache_write: u.cache_write + (ev.usage.cache_write ?? 0),
+          reasoning: u.reasoning + (ev.usage.reasoning ?? 0),
+        }));
       break;
     case "tool_call":
       transcript.update((t) => [
@@ -71,6 +93,11 @@ function handle(ev: Event) {
       break;
     case "tools_active":
       activeTools.set(new Set(ev.names ?? []));
+      break;
+    case "model":
+      currentModel.set({ provider: ev.provider, model: ev.model });
+      // Usage is per-model: swap the displayed total to the newly selected model.
+      if (ev.usage_today) usageToday.set(ev.usage_today);
       break;
     case "now_playing":
       nowPlaying.set(ev.track ?? null);

@@ -260,6 +260,7 @@ def _on_timer(label: str, action: str = ""):
 def start_voice_loop(source: str = "web"):
     """Load models, wire callbacks, and start the capture loop in a background thread."""
     tts.load()
+    llm._load_saved_model()  # a persisted UI model choice wins over .env on boot
     llm.load()
 
     from .mcp.tools import register_timer_callback, register_clear_history_callback

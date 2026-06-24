@@ -40,6 +40,9 @@ def _connect():
         return None
     try:
         conn = apsw.Connection(_DB_PATH)
+        # Wait rather than error if the shared db.py connection is mid-write (WAL is set
+        # at startup by db.connect(), so this connection inherits it from the file).
+        conn.cursor().execute("PRAGMA busy_timeout=5000")
         conn.enableloadextension(True)
         conn.loadextension(sqlite_vec.loadable_path())
         conn.enableloadextension(False)

@@ -11,7 +11,10 @@ tinytuya.json
 tuya-raw.json
 devices.json
 backend/schedules.json
+backend/model.json
+backend/usage.json
 backend/lumi_memory.json
+backend/*.json.bak
 backend/lumi_memory.db
 backend/lumi_memory.db-wal
 backend/lumi_memory.db-shm

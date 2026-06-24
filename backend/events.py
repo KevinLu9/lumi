@@ -24,6 +24,9 @@ current_state: dict[str, Any] = {
     "now_playing": None,
     "active_tools": [],   # tool names currently loaded into the LLM context
     "schedules": [],      # recurring scheduled prompts (see scheduler.py)
+    # Today's cumulative token usage (persisted per-day in usage.py); seeded at startup.
+    "usage_today": {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "reasoning": 0},
+    "model": None,        # {"provider": str, "model": str} — the active LLM, seeded at startup
 }
 
 # Cap transcript history kept in the snapshot so it doesn't grow unbounded.
@@ -61,6 +64,11 @@ def _update_state(event_type: str, data: dict) -> None:
         item = {"role": "lumi", "text": data.get("text", "")}
         if data.get("usage"):
             item["usage"] = data["usage"]
+            # Accumulate into today's per-model ledger (lazy import avoids an import cycle).
+            from . import usage as usage_tracker
+            current_state["usage_today"] = usage_tracker.add(
+                data["usage"], data.get("model") or {},
+            )
         current_state["transcript"].append(item)
         del current_state["transcript"][:-_MAX_TRANSCRIPT]
     elif event_type == "tool_call":
@@ -89,6 +97,14 @@ def _update_state(event_type: str, data: dict) -> None:
         current_state["transcript"] = []
     elif event_type == "tools_active":
         current_state["active_tools"] = data.get("names", current_state["active_tools"])
+    elif event_type == "model":
+        current_state["model"] = {
+            "provider": data.get("provider", ""),
+            "model": data.get("model", ""),
+        }
+        # Usage is per-model, so switching models swaps which total the UI shows.
+        if "usage_today" in data:
+            current_state["usage_today"] = data["usage_today"]
     elif event_type == "now_playing":
         current_state["now_playing"] = data.get("track")
     elif event_type == "schedules":

@@ -9,7 +9,7 @@
     by calling `memory_recall`. The prompt only carries a count + nudge so the
     model knows the store exists.
 
-Both tiers persist to one JSON file (like the scheduler's job store) so they
+Both tiers persist to the shared SQLite database (the `memories` table) so they
 survive restarts and a `reset_chat`.
 """
 
@@ -22,11 +22,13 @@ import uuid
 from ._registry import Registry
 from . import _memvec
 from ._embeddings import embed as _embed, available as _embed_available
+from .. import db
 
 registry = Registry()
 DESCRIPTION = "Remember personal facts about the user: a small always-on core plus a searchable long-term store."
 
-_STORE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "lumi_memory.json")
+# Legacy JSON store, migrated into SQLite on first load then renamed to .bak.
+_LEGACY_JSON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "lumi_memory.json")
 _lock = threading.Lock()
 
 # Semantic-recall tuning (cosine distance; smaller = more similar). Calibrated for
@@ -50,26 +52,59 @@ def _load() -> None:
     if _loaded:
         return
     _loaded = True
-    if not os.path.exists(_STORE):
-        return
+    rows = db.query("SELECT key, tier, fact, created_at FROM memories")
+    if not rows and os.path.exists(_LEGACY_JSON):
+        _migrate_json()
+        rows = db.query("SELECT key, tier, fact, created_at FROM memories")
+    for r in rows:
+        tier = r["tier"]
+        if tier in _memories:
+            _memories[tier][r["key"]] = {"fact": r["fact"], "created_at": r["created_at"]}
+
+
+def _migrate_json() -> None:
+    """One-time import of the legacy lumi_memory.json into the memories table."""
     try:
-        with open(_STORE) as f:
+        with open(_LEGACY_JSON) as f:
             data = json.load(f)
     except Exception:
         return  # corrupt/legacy file — start empty rather than crash
+    staged: dict[str, dict] = {"permanent": {}, "longterm": {}}
     if isinstance(data, dict) and ("permanent" in data or "longterm" in data):
-        _memories["permanent"].update(data.get("permanent", {}))
-        _memories["longterm"].update(data.get("longterm", {}))
+        staged["permanent"].update(data.get("permanent", {}))
+        staged["longterm"].update(data.get("longterm", {}))
     elif isinstance(data, dict):
-        # Migrate an old single-tier store (flat key -> {fact,...}) into long-term.
-        _memories["longterm"].update(data)
+        # Old single-tier store (flat key -> {fact,...}) migrates into long-term.
+        staged["longterm"].update(data)
+    rows = [
+        (k, tier, v.get("fact", ""), v.get("created_at", time.time()))
+        for tier, items in staged.items()
+        for k, v in items.items()
+    ]
+    if rows:
+        db.write(lambda c: c.executemany(
+            "INSERT OR REPLACE INTO memories(key, tier, fact, created_at) VALUES (?, ?, ?, ?)",
+            rows,
+        ))
+    os.replace(_LEGACY_JSON, _LEGACY_JSON + ".bak")
 
 
 def _save() -> None:
-    tmp = _STORE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(_memories, f, indent=2)
-    os.replace(tmp, _STORE)
+    rows = [
+        (k, tier, v["fact"], v["created_at"])
+        for tier in ("permanent", "longterm")
+        for k, v in _memories[tier].items()
+    ]
+
+    def _rewrite(c):
+        c.execute("DELETE FROM memories")
+        if rows:
+            c.executemany(
+                "INSERT INTO memories(key, tier, fact, created_at) VALUES (?, ?, ?, ?)",
+                rows,
+            )
+
+    db.write(_rewrite)
 
 
 # --- vector index sync (semantic recall) ------------------------------------

@@ -8,7 +8,9 @@ import re
 import os
 import threading
 
+from . import db
 from . import events
+from . import usage as usage_tracker  # aliased: 'usage' is a local var name in ask()
 
 LUMI_COLOR = "\033[35m"   # magenta
 RESET      = "\033[0m"
@@ -18,6 +20,21 @@ load_dotenv()
 PROVIDER     = os.environ.get("LLM_PROVIDER", "gemini").lower()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 GROQ_MODEL   = os.environ.get("GROQ_MODEL",   "meta-llama/llama-4-scout-17b-16e-instruct")
+
+# Curated catalog of models selectable from the UI. Hand-edit this to match the models your
+# GEMINI_API_KEY / GROQ_API_KEY can actually access.
+MODELS = [
+    {"provider": "gemini", "model": "gemini-3.1-flash-lite", "label": "Gemini 3.1 Flash Lite"},
+    {"provider": "groq", "model": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Llama 4 Scout 17B"},
+    {"provider": "groq", "model": "openai/gpt-oss-120b",     "label": "GPT-OSS 120B"},
+    {"provider": "groq", "model": "llama-3.3-70b-versatile", "label": "Llama 3.3 70B Versatile"},
+    {"provider": "groq", "model": "llama-3.1-8b-instant",    "label": "Llama 3.1 8B Instant"},
+    {"provider": "groq", "model": "qwen/qwen3-32b",          "label": "Qwen3 32B"},
+]
+
+# Persisted model choice lives in the shared DB (settings table, key "model") and overrides
+# .env when present so it survives restarts. Legacy JSON is migrated then renamed to .bak.
+_LEGACY_MODEL_JSON = os.path.join(os.path.dirname(__file__), "model.json")
 
 SYSTEM_PROMPT = open(os.path.join(os.path.dirname(__file__), "lumi.md")).read()
 
@@ -112,6 +129,95 @@ def _execute_tool(name: str, args: dict) -> str:
     if reg.active_version != before:
         events.emit("tools_active", names=reg.active_tool_names())
     return result
+
+
+# ---------------------------------------------------------------------------
+# Active model selection (provider + model), switchable at runtime and persisted.
+# ---------------------------------------------------------------------------
+def _migrate_model_json() -> None:
+    """One-time import of a legacy model.json into the settings table."""
+    if not os.path.exists(_LEGACY_MODEL_JSON):
+        return
+    try:
+        with open(_LEGACY_MODEL_JSON) as f:
+            saved = json.load(f)
+        db.write(lambda c: c.execute(
+            "INSERT OR REPLACE INTO settings(key, value) VALUES ('model', ?)",
+            (json.dumps({"provider": saved.get("provider", ""), "model": saved.get("model", "")}),),
+        ))
+    except Exception:
+        pass  # corrupt file — ignore and use env defaults
+    finally:
+        try:
+            os.replace(_LEGACY_MODEL_JSON, _LEGACY_MODEL_JSON + ".bak")
+        except OSError:
+            pass
+
+
+def _load_saved_model() -> None:
+    """Override the env-derived globals with the persisted choice, if any."""
+    global PROVIDER, GEMINI_MODEL, GROQ_MODEL
+    rows = db.query("SELECT value FROM settings WHERE key = 'model'")
+    if not rows:
+        _migrate_model_json()
+        rows = db.query("SELECT value FROM settings WHERE key = 'model'")
+    if not rows:
+        return
+    try:
+        saved = json.loads(rows[0]["value"])
+    except Exception:
+        return
+    provider = (saved.get("provider") or "").lower()
+    model = saved.get("model") or ""
+    if not any(m["provider"] == provider and m["model"] == model for m in MODELS):
+        return  # stale/unknown entry — fall back to .env defaults
+    PROVIDER = provider
+    if provider == "groq":
+        GROQ_MODEL = model
+    else:
+        GEMINI_MODEL = model
+
+
+def _save_model() -> None:
+    db.write(lambda c: c.execute(
+        "INSERT OR REPLACE INTO settings(key, value) VALUES ('model', ?)",
+        (json.dumps(current_model()),),
+    ))
+
+
+def current_model() -> dict:
+    """The active provider + model, for the snapshot and /api/model."""
+    return {"provider": PROVIDER, "model": GROQ_MODEL if PROVIDER == "groq" else GEMINI_MODEL}
+
+
+def set_model(provider: str, model: str) -> dict:
+    """Switch the active model at runtime, persist the choice, and reset the chat context.
+
+    Returns {"ok": True, "current": {...}} on success, or {"ok": False, "error": str}.
+    """
+    global PROVIDER, GEMINI_MODEL, GROQ_MODEL
+    provider = (provider or "").lower()
+    if not any(m["provider"] == provider and m["model"] == model for m in MODELS):
+        return {"ok": False, "error": f"Unknown model: {provider}/{model}"}
+
+    prev = (PROVIDER, GEMINI_MODEL, GROQ_MODEL)
+    PROVIDER = provider
+    if provider == "groq":
+        GROQ_MODEL = model
+    else:
+        GEMINI_MODEL = model
+
+    try:
+        load()  # rebuild the gemini chat / groq client for the new model
+    except Exception as e:
+        PROVIDER, GEMINI_MODEL, GROQ_MODEL = prev  # roll back on failure (e.g. missing key)
+        return {"ok": False, "error": str(e)}
+
+    clear_history()  # switching model starts a fresh context (also emits tools_active)
+    _save_model()
+    # Carry the new model's today usage so the UI swaps the totals immediately.
+    events.emit("model", **current_model(), usage_today=usage_tracker.today(current_model()))
+    return {"ok": True, "current": current_model()}
 
 
 def load():
@@ -254,7 +360,7 @@ def ask(text: str, on_sentence: Callable[[str], None]):
     if _cancel.is_set():
         return
 
-    events.emit("lumi_message", text=raw, usage=usage)
+    events.emit("lumi_message", text=raw, usage=usage, model=current_model())
     sys.stdout.write(f"\r\033[K{LUMI_COLOR}Lumi:{RESET} {raw}\n")
     sys.stdout.flush()
 

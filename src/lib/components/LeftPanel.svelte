@@ -1,6 +1,7 @@
 <script lang="ts">
   import StatusBar from "./StatusBar.svelte";
   import ControlButtons from "./ControlButtons.svelte";
+  import ModelPicker from "./ModelPicker.svelte";
   import Schedules from "./Schedules.svelte";
 </script>
 
@@ -12,6 +13,7 @@
   <div class="panel block">
     <h2 class="panel-title">Controls</h2>
     <ControlButtons />
+    <div class="model"><ModelPicker /></div>
   </div>
   <div class="panel block sched">
     <Schedules />
@@ -31,6 +33,9 @@
   }
   .block {
     padding: 16px;
+  }
+  .model {
+    margin-top: 12px;
   }
   /* Let the schedules panel take the remaining vertical space. */
   .sched {

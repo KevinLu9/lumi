@@ -12,7 +12,28 @@ export const reset = () => post("/api/reset");
 export const activate = () => post("/api/activate");
 export const deactivate = () => post("/api/deactivate");
 
-import type { ToolModule, NowPlaying, Schedule } from "./stores";
+import type { ToolModule, NowPlaying, Schedule, Model } from "./stores";
+
+export async function fetchModels() {
+  const r = await fetch("/api/model");
+  return r.json() as Promise<{
+    current: { provider: string; model: string };
+    models: Model[];
+  }>;
+}
+
+export async function setModel(provider: string, model: string) {
+  const r = await fetch("/api/model", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, model }),
+  });
+  return r.json() as Promise<{
+    ok: boolean;
+    error?: string;
+    current?: { provider: string; model: string };
+  }>;
+}
 
 export async function fetchTools() {
   const r = await fetch("/api/tools");

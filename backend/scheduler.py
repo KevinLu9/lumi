@@ -19,10 +19,12 @@ from datetime import datetime
 
 from croniter import croniter
 
+from . import db
 from . import events
 
 TICK_SEC = 20
-_STORE = os.path.join(os.path.dirname(__file__), "schedules.json")
+# Legacy JSON store, migrated into SQLite on first load then renamed to .bak.
+_LEGACY_JSON = os.path.join(os.path.dirname(__file__), "schedules.json")
 
 # Friendly weekday names → cron day-of-week numbers (0/7 = Sunday for croniter).
 _DOW = {
@@ -163,26 +165,72 @@ def describe(cron: str) -> str:
 # Persistence
 # ---------------------------------------------------------------------------
 def _load() -> None:
-    if not os.path.exists(_STORE):
-        return
+    rows = db.query(
+        "SELECT id, prompt, cron, label, enabled, created_at, last_run FROM schedules"
+    )
+    if not rows and os.path.exists(_LEGACY_JSON):
+        _migrate_json()
+        rows = db.query(
+            "SELECT id, prompt, cron, label, enabled, created_at, last_run FROM schedules"
+        )
+    with _lock:
+        _jobs.clear()
+        for r in rows:
+            _jobs[r["id"]] = Job(
+                id=r["id"],
+                prompt=r["prompt"],
+                cron=r["cron"],
+                label=r["label"],
+                enabled=bool(r["enabled"]),
+                created_at=r["created_at"],
+                last_run=r["last_run"],
+            )
+
+
+def _migrate_json() -> None:
+    """One-time import of the legacy schedules.json into the schedules table."""
     try:
-        with open(_STORE) as f:
+        with open(_LEGACY_JSON) as f:
             raw = json.load(f)
-        with _lock:
-            _jobs.clear()
-            for d in raw:
-                _jobs[d["id"]] = Job(**d)
     except Exception:
-        pass  # corrupt/legacy file — start empty rather than crash
+        return  # corrupt/legacy file — start empty rather than crash
+    rows = [
+        (
+            d["id"], d["prompt"], d["cron"], d.get("label", ""),
+            1 if d.get("enabled", True) else 0,
+            d.get("created_at", time.time()), d.get("last_run"),
+        )
+        for d in raw
+    ]
+    if rows:
+        db.write(lambda c: c.executemany(
+            "INSERT OR REPLACE INTO schedules"
+            "(id, prompt, cron, label, enabled, created_at, last_run) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        ))
+    os.replace(_LEGACY_JSON, _LEGACY_JSON + ".bak")
 
 
 def _save() -> None:
     with _lock:
-        data = [asdict(j) for j in _jobs.values()]
-    tmp = _STORE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp, _STORE)
+        rows = [
+            (
+                j.id, j.prompt, j.cron, j.label,
+                1 if j.enabled else 0, j.created_at, j.last_run,
+            )
+            for j in _jobs.values()
+        ]
+
+    def _rewrite(c):
+        c.execute("DELETE FROM schedules")
+        if rows:
+            c.executemany(
+                "INSERT INTO schedules"
+                "(id, prompt, cron, label, enabled, created_at, last_run) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+
+    db.write(_rewrite)
 
 
 # ---------------------------------------------------------------------------

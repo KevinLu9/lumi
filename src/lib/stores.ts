@@ -69,6 +69,23 @@ export type Schedule = {
   next_run: number | null; // unix seconds
 };
 export const schedules = writable<Schedule[]>([]);
+
+export type Model = { provider: string; model: string; label?: string };
+export const models = writable<Model[]>([]); // curated catalog from the backend
+export const currentModel = writable<{
+  provider: string;
+  model: string;
+} | null>(null);
+
+const zeroUsage = (): Usage => ({
+  input: 0,
+  output: 0,
+  cache_read: 0,
+  cache_write: 0,
+  reasoning: 0,
+});
+// Today's cumulative token usage (persisted per-day on the backend).
+export const usageToday = writable<Usage>(zeroUsage());
 export const spotifyConfigured = writable(true);
 export const connected = writable(false);
 export const micOn = writable(false);
